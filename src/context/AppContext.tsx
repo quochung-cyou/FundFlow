@@ -1,8 +1,7 @@
-
 import { createContext, useState, useContext, ReactNode, useEffect } from "react";
 import { Fund, Transaction, User } from "@/types";
 import { mockFunds, mockTransactions, mockUsers } from "@/data/mockData";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 
 interface AppContextType {
   currentUser: User | null;

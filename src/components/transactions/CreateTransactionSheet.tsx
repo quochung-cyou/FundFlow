@@ -14,7 +14,7 @@ import { useApp } from "@/context/AppContext";
 import { Fund } from "@/types";
 import { useState } from "react";
 import { PlusIcon, MinusIcon } from "lucide-react";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 

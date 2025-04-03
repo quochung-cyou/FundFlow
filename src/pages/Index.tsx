@@ -1,8 +1,14 @@
 
 import Dashboard from "./Dashboard";
+import { Toaster } from "sonner";
 
 const Index = () => {
-  return <Dashboard />;
+  return (
+    <>
+      <Toaster />
+      <Dashboard />
+    </>
+  );
 };
 
 export default Index;
