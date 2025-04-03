@@ -15,12 +15,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Plus, Home, PiggyBank } from "lucide-react";
-import { Link } from "react-router-dom";
-import { Fragment } from "react";
+import { LogOut, Plus, Home, PiggyBank, X, Search } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
 
 export function AppSidebar() {
   const { currentUser, funds, logout, selectedFund, setSelectedFund } = useApp();
+  const location = useLocation();
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredFunds = funds.filter(fund => 
+    fund.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (!currentUser) return null;
 
@@ -34,13 +43,19 @@ export function AppSidebar() {
             </div>
             <h2 className="font-semibold text-lg">Fund Flow</h2>
           </div>
-          <SidebarTrigger />
+          <div className="flex items-center">
+            <SidebarTrigger />
+          </div>
         </div>
       </SidebarHeader>
+      
       <SidebarContent className="p-2">
         <SidebarMenu>
           <SidebarMenuItem key="dashboard">
-            <SidebarMenuButton asChild>
+            <SidebarMenuButton 
+              asChild
+              isActive={location.pathname === "/"}
+            >
               <Link to="/" className="flex items-center gap-3">
                 <Home className="h-4 w-4" />
                 <span>Tổng quan</span>
@@ -63,27 +78,64 @@ export function AppSidebar() {
               </Link>
             </Button>
           </SidebarGroupLabel>
+          
+          <div className="px-2 mb-2">
+            <div className="relative">
+              <Search className="h-4 w-4 absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Tìm quỹ..."
+                className="pl-8 h-8"
+              />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+          
           <SidebarGroupContent>
             <SidebarMenu>
-              {funds.map((fund) => (
-                <SidebarMenuItem key={fund.id}>
-                  <SidebarMenuButton
-                    className={selectedFund?.id === fund.id ? "bg-blue-50 text-blue-600" : ""}
-                    onClick={() => setSelectedFund(fund)}
-                    asChild
-                  >
-                    <Link to={`/funds/${fund.id}`} className="flex items-center gap-3">
-                      <span className="text-lg">{fund.icon}</span>
-                      <span>{fund.name}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {filteredFunds.length > 0 ? filteredFunds.map((fund) => (
+                <motion.div
+                  key={fund.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      className={cn(
+                        selectedFund?.id === fund.id ? "bg-blue-50 text-blue-600" : "",
+                        "transition-all duration-200 hover:bg-blue-50/50"
+                      )}
+                      onClick={() => setSelectedFund(fund)}
+                      isActive={location.pathname === `/funds/${fund.id}`}
+                      asChild
+                    >
+                      <Link to={`/funds/${fund.id}`} className="flex items-center gap-3">
+                        <span className="text-lg">{fund.icon}</span>
+                        <span>{fund.name}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </motion.div>
+              )) : (
+                <div className="text-center py-4 text-sm text-muted-foreground">
+                  Không tìm thấy quỹ nào
+                </div>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4">
+      
+      <SidebarFooter className="p-4 border-t">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Avatar>
