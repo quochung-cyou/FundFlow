@@ -91,8 +91,15 @@ export function FundSummaryChart({ fund }: FundSummaryChartProps) {
   const monthlyData = getMonthlyData();
   const userContributionData = getUserContributionData();
   
-  // Colors for the pie chart
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+  // Colors matching shadcn UI vibe - soft pastels with good contrast
+  const COLORS = [
+    'hsl(221, 83%, 53%)',   // Blue
+    'hsl(142, 76%, 36%)',   // Green
+    'hsl(262, 80%, 50%)',   // Purple
+    'hsl(346, 84%, 61%)',   // Red
+    'hsl(31, 95%, 56%)',    // Orange
+    'hsl(170, 57%, 50%)',   // Teal
+  ];
   
   return (
     <div className="h-full flex flex-col">
@@ -105,56 +112,69 @@ export function FundSummaryChart({ fund }: FundSummaryChartProps) {
         </div>
       </Tabs>
       
-      <div className="flex-1">
+      <div className="flex-1 w-full h-full">
         {chartType === "bar" ? (
           <ChartContainer 
             config={{
-              spent: { label: "Chi tiêu", color: "#0088FE" },
-              count: { label: "Số giao dịch", color: "#00C49F" },
+              spent: { label: "Chi tiêu", color: "hsl(221, 83%, 53%)" },
+              count: { label: "Số giao dịch", color: "hsl(142, 76%, 36%)" },
             }}
-            className="h-full"
+            className="w-full h-full"
           >
-            <BarChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <BarChart
+              data={monthlyData}
+              margin={{ top: 10, right: 30, left: 20, bottom: 20 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
               <XAxis 
                 dataKey="name"
                 tick={{ fontSize: 12 }}
                 tickLine={false}
+                axisLine={{ stroke: 'hsl(240 3.8% 46.1% / 0.3)' }}
               />
               <YAxis 
                 yAxisId="left"
                 orientation="left"
                 tick={{ fontSize: 12 }}
                 tickLine={false}
+                axisLine={{ stroke: 'hsl(240 3.8% 46.1% / 0.3)' }}
                 tickFormatter={(value) => formatCurrency(value)}
+                width={80}
               />
               <YAxis 
                 yAxisId="right"
                 orientation="right"
                 tick={{ fontSize: 12 }}
                 tickLine={false}
+                axisLine={{ stroke: 'hsl(240 3.8% 46.1% / 0.3)' }}
+                width={30}
               />
               <Tooltip 
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     return (
-                      <div className="bg-background border rounded-lg shadow-md p-3 text-sm">
-                        <p className="font-medium">{payload[0].payload.name}</p>
-                        <p>Chi tiêu: {formatCurrency(payload[0].value as number)}</p>
-                        <p>Số giao dịch: {payload[1].value}</p>
+                      <div className="rounded-md border bg-background shadow-md p-3 text-sm">
+                        <p className="font-medium mb-1">{payload[0].payload.name}</p>
+                        <p className="text-muted-foreground">Chi tiêu: <span className="font-medium text-foreground">{formatCurrency(payload[0].value as number)}</span></p>
+                        <p className="text-muted-foreground">Số giao dịch: <span className="font-medium text-foreground">{payload[1].value}</span></p>
                       </div>
                     );
                   }
                   return null;
                 }}
+                cursor={{ fill: 'hsl(240 3.8% 46.1% / 0.05)' }}
               />
-              <Legend />
+              <Legend 
+                wrapperStyle={{ paddingTop: "10px" }}
+                formatter={(value) => <span className="text-xs font-medium">{value}</span>}
+              />
               <Bar
                 dataKey="totalAmount"
                 name="Chi tiêu"
                 fill="var(--color-spent)"
                 yAxisId="left"
                 radius={[4, 4, 0, 0]}
+                maxBarSize={50}
               />
               <Bar
                 dataKey="count"
@@ -162,18 +182,19 @@ export function FundSummaryChart({ fund }: FundSummaryChartProps) {
                 fill="var(--color-count)"
                 yAxisId="right"
                 radius={[4, 4, 0, 0]}
+                maxBarSize={50}
               />
             </BarChart>
           </ChartContainer>
         ) : (
           <ChartContainer 
             config={{
-              user1: { label: "Người dùng 1", color: "#0088FE" },
-              user2: { label: "Người dùng 2", color: "#00C49F" },
+              user1: { label: "Người dùng 1", color: COLORS[0] },
+              user2: { label: "Người dùng 2", color: COLORS[1] },
             }}
-            className="h-full"
+            className="w-full h-full"
           >
-            <PieChart>
+            <PieChart margin={{ top: 10, right: 30, left: 20, bottom: 20 }}>
               <Pie
                 data={userContributionData}
                 dataKey="value"
@@ -181,29 +202,53 @@ export function FundSummaryChart({ fund }: FundSummaryChartProps) {
                 cx="50%"
                 cy="50%"
                 outerRadius={80}
-                label={({ name, value }) => `${name}: ${formatCurrency(value)}`}
+                innerRadius={40}
+                label={({ name, value, percent }) => 
+                  `${name.split(' ')[0]}: ${(percent * 100).toFixed(0)}%`
+                }
                 labelLine={false}
+                paddingAngle={2}
               >
                 {userContributionData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={COLORS[index % COLORS.length]} 
+                    stroke="hsl(240 3.8% 46.1% / 0.1)"
+                    strokeWidth={1}
+                  />
                 ))}
               </Pie>
               <Tooltip
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const data = payload[0].payload;
+                    const total = userContributionData.reduce((sum, item) => sum + item.value, 0);
+                    
                     return (
-                      <div className="bg-background border rounded-lg shadow-md p-3 text-sm">
-                        <p className="font-medium">{data.name}</p>
-                        <p>Đóng góp: {formatCurrency(data.value)}</p>
-                        <p>Tỷ lệ: {(data.value / userContributionData.reduce((sum, item) => sum + item.value, 0) * 100).toFixed(1)}%</p>
+                      <div className="rounded-md border bg-background shadow-md p-3 text-sm">
+                        <p className="font-medium mb-1">{data.name}</p>
+                        <p className="text-muted-foreground">Đóng góp: <span className="font-medium text-foreground">{formatCurrency(data.value)}</span></p>
+                        <p className="text-muted-foreground">Tỷ lệ: <span className="font-medium text-foreground">{(data.value / total * 100).toFixed(1)}%</span></p>
                       </div>
                     );
                   }
                   return null;
                 }}
               />
-              <Legend />
+              <Legend 
+                formatter={(value, entry, index) => {
+                  const item = userContributionData[index];
+                  return (
+                    <span className="text-xs font-medium">
+                      {value}: {formatCurrency(item.value)}
+                    </span>
+                  );
+                }}
+                layout="horizontal"
+                verticalAlign="bottom"
+                align="center"
+                wrapperStyle={{ paddingTop: "20px" }}
+              />
             </PieChart>
           </ChartContainer>
         )}

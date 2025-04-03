@@ -24,7 +24,7 @@ interface TransactionListProps {
 }
 
 export function TransactionList({ fund, searchQuery = "", dateRange }: TransactionListProps) {
-  const { transactions } = useApp();
+  const { transactions, getUserById } = useApp();
   const [isExpanded, setIsExpanded] = useState(true);
   const [localSearchTerm, setLocalSearchTerm] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -95,9 +95,6 @@ export function TransactionList({ fund, searchQuery = "", dateRange }: Transacti
   };
 
   const groupedTransactions = groupByDate(filteredTransactions);
-
-  // Function to get user by ID, needs to be added inside the component
-  const { getUserById } = useApp();
 
   // Scroll to top when new transactions are added
   useEffect(() => {
