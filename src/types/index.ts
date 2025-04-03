@@ -35,3 +35,8 @@ export interface Balance {
   userId: string;
   amount: number;
 }
+
+export interface DateRange {
+  from: Date | undefined;
+  to: Date | undefined;
+}
