@@ -67,7 +67,7 @@ export default defineConfig(({ mode }) => ({
     commonjsOptions: {
       include: [/node_modules/],
       transformMixedEsModules: true,
-    },s
+    },
     // Make builds faster with reasonable chunk sizes
     chunkSizeWarningLimit: 1000,
   },
