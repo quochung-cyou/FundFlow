@@ -37,13 +37,13 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-500 text-white p-1.5 rounded-md">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <div className="bg-blue-500 text-white p-1.5 rounded-md flex-shrink-0">
               <PiggyBank className="h-5 w-5" />
             </div>
-            <h2 className="font-semibold text-lg">Fund Flow</h2>
+            <h2 className="font-semibold text-lg truncate">Fund Flow</h2>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center flex-shrink-0">
             <SidebarTrigger />
           </div>
         </div>
@@ -118,9 +118,9 @@ export function AppSidebar() {
                       isActive={location.pathname === `/funds/${fund.id}`}
                       asChild
                     >
-                      <Link to={`/funds/${fund.id}`} className="flex items-center gap-3">
-                        <span className="text-lg">{fund.icon}</span>
-                        <span>{fund.name}</span>
+                      <Link to={`/funds/${fund.id}`} className="flex items-center gap-3 w-full overflow-hidden">
+                        <span className="text-lg flex-shrink-0">{fund.icon}</span>
+                        <span className="truncate">{fund.name}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -136,15 +136,15 @@ export function AppSidebar() {
       </SidebarContent>
       
       <SidebarFooter className="p-4 border-t">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar>
+        <div className="flex items-center justify-between w-full overflow-hidden">
+          <div className="flex items-center gap-3 max-w-[calc(100%-40px)]">
+            <Avatar className="flex-shrink-0">
               <AvatarImage src={currentUser.photoURL} alt={currentUser.displayName} />
               <AvatarFallback>{currentUser.displayName.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="text-sm">
-              <div className="font-medium">{currentUser.displayName}</div>
-              <div className="text-xs text-muted-foreground">{currentUser.email}</div>
+            <div className="text-sm overflow-hidden">
+              <div className="font-medium truncate">{currentUser.displayName}</div>
+              <div className="text-xs text-muted-foreground truncate">{currentUser.email}</div>
             </div>
           </div>
           <Button variant="ghost" size="icon" onClick={logout}>

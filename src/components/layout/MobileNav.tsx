@@ -13,16 +13,20 @@ export function MobileNav() {
 
   const navItems = [
     {
+      id: "home",
       href: "/",
       icon: Home,
       label: "Home"
     },
     {
-      href: selectedFund ? `/funds/${selectedFund.id}` : "/",
+      id: "current-fund",
+      href: selectedFund ? `/funds/${selectedFund.id}` : "/funds",
       icon: PiggyBank,
-      label: "Current Fund"
+      label: "Current Fund",
+      disabled: !selectedFund
     },
     {
+      id: "new-fund",
       href: "/funds/new",
       icon: Plus,
       label: "New Fund"
@@ -38,13 +42,13 @@ export function MobileNav() {
       <div className="flex justify-around">
         {navItems.map((item) => {
           const isActive = item.href === location.pathname;
-          return (
-            <Link
-              key={item.href}
-              to={item.href}
+          const NavItem = (
+            <div
+              key={item.id}
               className={cn(
                 "flex flex-col items-center py-2 px-4 transition-colors",
-                isActive ? "text-primary" : "text-muted-foreground"
+                isActive ? "text-primary" : "text-muted-foreground",
+                item.disabled && "opacity-50 cursor-not-allowed"
               )}
             >
               <item.icon className={cn("h-5 w-5", isActive && "text-primary")} />
@@ -56,6 +60,16 @@ export function MobileNav() {
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 />
               )}
+            </div>
+          );
+          
+          return item.disabled ? NavItem : (
+            <Link
+              key={item.id}
+              to={item.href}
+              className="contents"
+            >
+              {NavItem}
             </Link>
           );
         })}

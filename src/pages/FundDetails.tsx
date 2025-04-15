@@ -3,11 +3,16 @@ import { useApp } from "@/context/AppContext";
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PlusIcon, ChevronDownIcon, ChevronUpIcon, CalendarIcon, SearchIcon, ArrowUpDownIcon } from "lucide-react";
+import { FundDetailsSkeleton } from "@/components/skeletons/FundDetailsSkeleton";
+import { useRef } from "react";
+import { PlusIcon, ChevronDownIcon, ChevronUpIcon, CalendarIcon, SearchIcon, ArrowUpDownIcon, Users, EditIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TransactionList } from "@/components/transactions/TransactionList";
-import { Chatbot } from "@/components/chatbot/Chatbot";
 import { CreateTransactionSheet } from "@/components/transactions/CreateTransactionSheet";
+import { ManageMembersSheet } from "@/components/funds/ManageMembersSheet";
+import { DeleteFundDialog } from "@/components/funds/DeleteFundDialog";
+import { EditFundSheet } from "@/components/funds/EditFundSheet";
+import { AiTransactionButton } from "@/components/ai/AiTransactionButton";
 import { BalanceCard } from "@/components/balances/BalanceCard";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,10 +31,11 @@ export default function FundDetails() {
   const navigate = useNavigate();
   const { funds, selectedFund, setSelectedFund, calculateBalances, getUserById, currentUser, transactions } = useApp();
   
+  // Use the Calendar's DateRange type directly
   const [dateRange, setDateRange] = useState<{
     from: Date | undefined;
     to: Date | undefined;
-  }>({
+  }>({  
     from: undefined,
     to: undefined,
   });
@@ -37,6 +43,8 @@ export default function FundDetails() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("summary");
   const [showAllMembers, setShowAllMembers] = useState(false);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const isFirstRender = useRef(true);
   
   useEffect(() => {
     if (id && (!selectedFund || selectedFund.id !== id)) {
@@ -48,6 +56,21 @@ export default function FundDetails() {
       }
     }
   }, [id, funds, selectedFund, setSelectedFund, navigate]);
+
+  useEffect(() => {
+    // Check if data is loaded and transaction is ready
+    if (selectedFund && transactions.some(t => t.fundId === selectedFund.id)) {
+      setInitialLoadComplete(true);
+      isFirstRender.current = false;
+    }
+  }, [selectedFund, transactions]);
+
+  // Show skeleton during loading state
+  const isLoading = !selectedFund || transactions.length === 0 || isFirstRender.current || !initialLoadComplete;
+  
+  if (isLoading) {
+    return <FundDetailsSkeleton />;
+  }
 
   if (!selectedFund) return null;
 
@@ -93,14 +116,32 @@ export default function FundDetails() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">{selectedFund.name}</h1>
             <p className="text-muted-foreground">{selectedFund.description}</p>
+            <div className="mt-2">
+              <EditFundSheet fund={selectedFund}>
+                <Button variant="ghost" size="sm" className="h-8 px-2">
+                  <EditIcon className="h-4 w-4 mr-1" />
+                  <span>Chỉnh sửa</span>
+                </Button>
+              </EditFundSheet>
+            </div>
           </div>
         </div>
-        <CreateTransactionSheet fund={selectedFund}>
-          <Button className="flex items-center gap-1 sm:self-start">
-            <PlusIcon className="h-4 w-4" />
-            <span>Thêm giao dịch</span>
-          </Button>
-        </CreateTransactionSheet>
+        <div className="flex flex-col sm:flex-row gap-2 sm:self-start">
+          <CreateTransactionSheet fund={selectedFund}>
+            <Button className="flex items-center gap-1">
+              <PlusIcon className="h-4 w-4" />
+              <span>Thêm giao dịch</span>
+            </Button>
+          </CreateTransactionSheet>
+          <AiTransactionButton fund={selectedFund} />
+          <ManageMembersSheet fund={selectedFund}>
+            <Button variant="outline" className="flex items-center gap-1">
+              <Users className="h-4 w-4" />
+              <span>Quản lý thành viên</span>
+            </Button>
+          </ManageMembersSheet>
+          <DeleteFundDialog fund={selectedFund} />
+        </div>
       </div>
       
       {/* Main Content */}
@@ -109,7 +150,6 @@ export default function FundDetails() {
           <TabsList className="mb-4 w-full sm:w-auto">
             <TabsTrigger value="summary" className="flex-1 sm:flex-auto">Tổng quan</TabsTrigger>
             <TabsTrigger value="transactions" className="flex-1 sm:flex-auto">Giao dịch</TabsTrigger>
-            <TabsTrigger value="chatbot" className="flex-1 sm:flex-auto">Chatbot</TabsTrigger>
           </TabsList>
           
           {/* Summary Tab */}
@@ -203,7 +243,7 @@ export default function FundDetails() {
                               <AvatarFallback>{user.displayName.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <span className={cn(
-                              "text-sm font-medium",
+                              "text-sm font-medium truncate max-w-[120px] block",
                               balance.userId === currentUser?.id ? "text-blue-600" : ""
                             )}>
                               {user.displayName}
@@ -257,7 +297,7 @@ export default function FundDetails() {
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal",
-                        !dateRange.from && !dateRange.to && "text-muted-foreground"
+                        !dateRange?.from && !dateRange?.to && "text-muted-foreground"
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
@@ -278,7 +318,14 @@ export default function FundDetails() {
                     <Calendar
                       mode="range"
                       selected={dateRange}
-                      onSelect={setDateRange as any}
+                      onSelect={(value) => {
+                        // Ensure we always have a valid dateRange object even when dates are deselected
+                        if (value === undefined) {
+                          setDateRange({ from: undefined, to: undefined });
+                        } else {
+                          setDateRange(value);
+                        }
+                      }}
                       initialFocus
                       locale={vi}
                       className={cn("p-3 pointer-events-auto")}
@@ -292,13 +339,10 @@ export default function FundDetails() {
               </Button>
             </div>
             
-            <TransactionList fund={selectedFund} searchQuery={searchQuery} dateRange={dateRange} />
+            <TransactionList fund={selectedFund} searchQuery={searchQuery} dateRange={dateRange || { from: undefined, to: undefined }} />
           </TabsContent>
           
-          {/* Chatbot Tab */}
-          <TabsContent value="chatbot" className="animate-fade-in">
-            <Chatbot fund={selectedFund} />
-          </TabsContent>
+
         </Tabs>
       </div>
     </div>

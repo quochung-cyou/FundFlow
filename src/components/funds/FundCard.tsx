@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import { motion } from "framer-motion";
+import { useMemo } from "react";
 
 interface FundCardProps {
   fund: Fund;
@@ -16,8 +17,21 @@ interface FundCardProps {
 }
 
 export function FundCard({ fund, delay = 0 }: FundCardProps) {
-  const { setSelectedFund } = useApp();
+  const { setSelectedFund, getUserById } = useApp();
   const navigate = useNavigate();
+
+  // Convert member IDs to user objects for display
+  const memberUsers = useMemo(() => {
+    return (fund.members || []).map(memberId => {
+      const user = getUserById(memberId);
+      return user || {
+        id: memberId,
+        displayName: 'User',
+        email: '',
+        photoURL: ''
+      };
+    }).slice(0, 5); // Only get first 5 members for display
+  }, [fund.members, getUserById]);
 
   const handleViewFund = () => {
     setSelectedFund(fund);
@@ -62,7 +76,7 @@ export function FundCard({ fund, delay = 0 }: FundCardProps) {
         </CardContent>
         <CardFooter className="pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex -space-x-3">
-            {fund.members.slice(0, 5).map((member, index) => (
+            {memberUsers.map((member, index) => (
               <motion.div
                 key={member.id}
                 initial={{ x: -10, opacity: 0 }}

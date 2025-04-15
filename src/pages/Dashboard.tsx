@@ -5,12 +5,21 @@ import { useApp } from "@/context/AppContext";
 import { PlusIcon, WalletCardsIcon, SearchIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { DashboardSkeleton } from "@/components/skeletons/DashboardSkeleton";
 
 export default function Dashboard() {
-  const { funds, currentUser } = useApp();
+  const { funds, currentUser, isLoading } = useApp();
   const [searchTerm, setSearchTerm] = useState("");
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  
+  // Set initialLoadComplete to true after the first load
+  useEffect(() => {
+    if (!isLoading && !initialLoadComplete) {
+      setInitialLoadComplete(true);
+    }
+  }, [isLoading]);
 
   // Filter funds based on search term
   const filteredFunds = funds.filter(fund => 
@@ -33,6 +42,12 @@ export default function Dashboard() {
     hidden: { y: 20, opacity: 0 },
     show: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 70 } }
   };
+
+  // Show skeleton during initial loading
+  // We use initialLoadComplete to ensure we show the skeleton during the first load
+  if (isLoading || !initialLoadComplete) {
+    return <DashboardSkeleton />
+  }
 
   return (
     <div className="container mx-auto max-w-5xl py-6 px-4 sm:px-6">

@@ -1,7 +1,6 @@
 
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useApp } from "@/context/AppContext";
-import { LoginPage } from "@/components/auth/LoginPage";
 import { AppSidebar } from "./AppSidebar";
 import { AppNavbar } from "./AppNavbar";
 import { MobileNav } from "./MobileNav";
@@ -10,10 +9,9 @@ import { motion } from "framer-motion";
 
 export function AppLayout() {
   const { currentUser } = useApp();
-
-  if (!currentUser) {
-    return <LoginPage />;
-  }
+  
+  // No need to check for currentUser here anymore
+  // Protected routes handle this logic now
 
   return (
     <SidebarProvider>
