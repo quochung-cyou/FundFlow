@@ -1,4 +1,4 @@
-# Fund Flow Style
+# Fund Flow
 
 A modern, real-time fund management application for sharing and tracking expenses between friends, families, and groups. Using A.I for fast expense parsing and Vietnamese language processing.
 
