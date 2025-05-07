@@ -6,6 +6,7 @@ import { getFirestore } from "firebase/firestore";
 
 
 const defaultConfig = {
+  apiKey: "AIzaSyAQM_Tb6Ihjf6nJzKbiuE0RQglUOkvSHuA",
   authDomain: "jadeg-money.firebaseapp.com",
   databaseURL: "https://jadeg-money-default-rtdb.firebaseio.com",
   projectId: "jadeg-money",
@@ -18,6 +19,7 @@ const defaultConfig = {
 // Your web app's Firebase configuration with fallbacks to default values
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || defaultConfig.apiKey,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || defaultConfig.authDomain,
   databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || defaultConfig.databaseURL,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || defaultConfig.projectId,
