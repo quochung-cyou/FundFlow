@@ -8,7 +8,8 @@ import {
   TrendingDown, CalendarDays, 
   Users
 } from "lucide-react";
-import { calculateTotalExpense, formatCompactCurrency, formatCurrency } from "./utils";
+import { formatCompactCurrency, formatCurrency } from "./utils";
+import { calculateTotalExpense } from "@/utils/transactionUtils";
 
 export function SummaryStatsCards({
   transactions,

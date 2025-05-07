@@ -25,14 +25,7 @@ export const getDayName = (date: Date) => {
   return format(date, 'EEE', { locale: vi });
 };
 
-// Calculate total expense with proper logic (sum all amounts and divide by 2)
-export const calculateTotalExpense = (transactions: Transaction[]) => {
-  // Sum up all amounts (positive and negative)
-  const totalAmount = transactions.reduce((total, t) => total + t.amount, 0);
-  
-  // Divide by 2 as per requested calculation method
-  return Math.abs(totalAmount) / 2;
-};
+
 
 // Get expense by category
 export const getExpensesByCategory = (transactions: Transaction[]) => {

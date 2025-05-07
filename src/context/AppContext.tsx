@@ -320,7 +320,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Add date field if not provided
       const transactionWithDate = {
         ...transaction,
-        date: transaction.date || Date.now()
+        date: transaction.date || Date.now(),
+        // Use the utility function to calculate the final splits
+        splits: calculateTransactionSplits(transaction)
       };
       const newTransaction = await createFirebaseTransaction(transactionWithDate);
       

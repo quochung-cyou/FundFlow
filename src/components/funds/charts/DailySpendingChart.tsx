@@ -12,6 +12,7 @@ import { vi } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingDown } from "lucide-react";
 import { formatCompactCurrency, formatCurrency } from "./utils";
+import { calculateDailyExpenses, calculateTransactionAmount } from "@/utils/transactionUtils";
 
 export function DailySpendingChart({ 
   transactions, 
@@ -31,7 +32,7 @@ export function DailySpendingChart({
   });
   
   // Create a map to store expenses for each day
-  const dailyExpenseMap: Record<string, { expense: number, count: number }> = {};
+  let dailyExpenseMap: Record<string, { expense: number, count: number }> = {};
   
   // Initialize all days in range with zero values
   daysArray.forEach(day => {
@@ -39,18 +40,23 @@ export function DailySpendingChart({
     dailyExpenseMap[dateKey] = { expense: 0, count: 0 };
   });
   
-  // Process transactions to populate the map
-  transactions.forEach(transaction => {
-    // Use date or createdAt, and extract only the date part
-    const transactionDate = transaction.date ? new Date(transaction.date) : new Date(transaction.createdAt);
-    const dateKey = format(transactionDate, 'yyyy-MM-dd');
+  // Filter transactions by date range
+  const filteredTransactions = transactions.filter(transaction => {
+    const transactionDate = transaction.date 
+      ? new Date(transaction.date) 
+      : new Date(transaction.createdAt);
     
-    // Only process if within our date range and is an expense (negative amount)
-    if (dailyExpenseMap[dateKey]) {
-      dailyExpenseMap[dateKey].expense += Math.abs(transaction.amount)/2;
-      dailyExpenseMap[dateKey].count += 1;
-    }
+    return transactionDate >= startDate && transactionDate <= currentDate;
   });
+  
+  // Process filtered transactions to populate the map using the utility function
+  const calculatedExpenses = calculateDailyExpenses(
+    filteredTransactions, 
+    (date) => format(date, 'yyyy-MM-dd')
+  );
+  
+  // Merge the calculated expenses with our initialized map
+  dailyExpenseMap = { ...dailyExpenseMap, ...calculatedExpenses };
   
   // Convert the map to the array format needed for the chart
   const dailyData = daysArray.map(day => {

@@ -27,6 +27,7 @@ import { FundSummaryChart } from "@/components/funds/FundSummaryChart";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { calculateTotalExpense } from "@/utils/transactionUtils";
 
 export default function FundDetails() {
   const { id } = useParams();
@@ -214,7 +215,7 @@ export default function FundDetails() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(transactionStats.totalAmount/2)}
+                    {formatCurrency(calculateTotalExpense(filteredTransactions))}
                   </div>
                 </CardContent>
               </Card>
@@ -225,7 +226,7 @@ export default function FundDetails() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {formatCurrency(transactionStats.avgAmount)}
+                    {formatCurrency(calculateTotalExpense(filteredTransactions) / transactionStats.total)}
                   </div>
                 </CardContent>
               </Card>

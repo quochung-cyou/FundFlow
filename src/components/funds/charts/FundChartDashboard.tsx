@@ -1,12 +1,8 @@
-import React from "react";
 import { Fund } from "@/types";
 import { useApp } from "@/context/AppContext";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { DailySpendingChart } from "./DailySpendingChart";
-import { CategoryDistributionChart } from "./CategoryDistributionChart";
-import { TopCategoryChart } from "./TopCategoryChart";
 import { SummaryStatsCards } from "./SummaryStatsCards";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function FundChartDashboard({ fund }: { fund: Fund }) {
   const { transactions } = useApp();
@@ -26,7 +22,7 @@ export function FundChartDashboard({ fund }: { fund: Fund }) {
       <div className="mt-6 space-y-6">
         <DailySpendingChart 
           transactions={fundTransactions} 
-          days={30}
+          days={21}
         />
       </div>
     </div>
