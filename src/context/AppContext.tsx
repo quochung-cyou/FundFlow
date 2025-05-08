@@ -32,6 +32,7 @@ import {
   syncUserWithFirestore,
   addUserToFundByEmail
 } from "@/firebase/userService";
+import { calculateTransactionSplits } from "@/utils/transactionUtils";
 
 interface AppContextType {
   currentUser: User | null;
