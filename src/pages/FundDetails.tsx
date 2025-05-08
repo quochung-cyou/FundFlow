@@ -8,6 +8,7 @@ import { useRef } from "react";
 import { PlusIcon, ChevronDownIcon, ChevronUpIcon, CalendarIcon, SearchIcon, ArrowUpDownIcon, Users, EditIcon, MoreHorizontal } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TransactionList } from "@/components/transactions/TransactionList";
+import { PersonalTransactionList } from "@/components/transactions/PersonalTransactionList";
 import { CreateTransactionSheet } from "@/components/transactions/CreateTransactionSheet";
 import { ReturnMoneyButton } from "@/components/transactions/ReturnMoneyButton";
 import { ManageMembersSheet } from "@/components/funds/ManageMembersSheet";
@@ -209,6 +210,7 @@ export default function FundDetails() {
           <TabsList className="mb-4 w-full sm:w-auto">
             <TabsTrigger value="summary" className="flex-1 sm:flex-auto">Tổng quan</TabsTrigger>
             <TabsTrigger value="transactions" className="flex-1 sm:flex-auto">Giao dịch</TabsTrigger>
+            <TabsTrigger value="debts" className="flex-1 sm:flex-auto">Khoản nợ</TabsTrigger>
           </TabsList>
           
           {/* Summary Tab */}
@@ -393,7 +395,76 @@ export default function FundDetails() {
             <TransactionList fund={selectedFund} searchQuery={searchQuery} dateRange={dateRange} />
           </TabsContent>
           
-
+          {/* Personal Debts Tab */}
+          <TabsContent value="debts" className="animate-fade-in">
+            <div className="flex flex-col sm:flex-row gap-4 mb-4 items-end">
+              <div className="w-full sm:w-1/3">
+                <label className="text-sm font-medium mb-1 block">Tìm kiếm khoản nợ</label>
+                <div className="relative">
+                  <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Tên người nợ, mô tả..." 
+                    className="pl-8"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+              </div>
+              
+              <div className="w-full sm:w-1/3">
+                <label className="text-sm font-medium mb-1 block">Khoảng thời gian</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !dateRange?.from && !dateRange?.to && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                        dateRange?.to ? (
+                          <>{format(dateRange.from, "dd/MM/yyyy")} - {format(dateRange.to!, "dd/MM/yyyy")}</>
+                        ) : (
+                          <>{format(dateRange.from, "dd/MM/yyyy")}</>
+                        )
+                      ) : (
+                        "Chọn khoảng thời gian"
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={(value) => {
+                        // Ensure we always have a valid dateRange object even when dates are deselected
+                        if (value === undefined) {
+                          setDateRange(undefined);
+                        } else {
+                          // Convert DayPickerDateRange to our interface
+                          setDateRange({
+                            from: value.from, 
+                            to: value.to
+                          });
+                        }
+                      }}
+                      initialFocus
+                      locale={vi}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <Button variant="outline" onClick={clearFilters}>
+                Xóa bộ lọc
+              </Button>
+            </div>
+            
+            <PersonalTransactionList fund={selectedFund} searchQuery={searchQuery} dateRange={dateRange} />
+          </TabsContent>
         </Tabs>
       </div>
     </div>

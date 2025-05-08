@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
 import { Fund, User } from "@/types";
@@ -15,18 +15,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatNumberWithSeparators, numberToVietnameseText } from "@/lib/utils";
 import { toast } from "sonner";
+import { ArrowDownIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface ReturnMoneyButtonProps {
   fund: Fund;
   children?: React.ReactNode;
   trigger?: React.ReactNode;
+  fundBalanceData?: { userId: string; amount: number }[];
 }
 
-export function ReturnMoneyButton({ fund, trigger }: ReturnMoneyButtonProps) {
-  const { createTransaction, currentUser, getUserById } = useApp();
+export function ReturnMoneyButton({ fund, trigger, fundBalanceData }: ReturnMoneyButtonProps) {
+  const { createTransaction, currentUser, getUserById, calculateBalances } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [amount, setAmount] = useState("");
+  const [balances, setBalances] = useState<{ userId: string; amount: number }[]>([]);
+  const [currentUserBalance, setCurrentUserBalance] = useState<number>(0);
+
+  // Get balances for the current fund
+  useEffect(() => {
+    const fundBalances = fundBalanceData || calculateBalances(fund.id);
+    setBalances(fundBalances);
+    
+    // Find current user's balance
+    if (currentUser) {
+      const userBalance = fundBalances.find(b => b.userId === currentUser.id);
+      setCurrentUserBalance(userBalance?.amount || 0);
+    }
+  }, [fund.id, currentUser, calculateBalances, fundBalanceData]);
 
   // Convert member IDs to user objects
   const memberUsers = fund.members
@@ -45,6 +62,15 @@ export function ReturnMoneyButton({ fund, trigger }: ReturnMoneyButtonProps) {
 
   const setPresetAmount = (value: number) => {
     setAmount(value.toString());
+  };
+
+  // Set the amount to the absolute value of the current user's negative balance
+  const setNegativeBalanceAmount = () => {
+    if (currentUserBalance < 0) {
+      setAmount(Math.abs(currentUserBalance).toString());
+    } else {
+      toast.info("Bạn không có số dư âm cần thanh toán");
+    }
   };
 
   const addZeros = (count: number) => {
@@ -113,25 +139,70 @@ export function ReturnMoneyButton({ fund, trigger }: ReturnMoneyButtonProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+          {/* Current user balance */}
+          {currentUser && (
+            <div className="p-4 rounded-lg bg-muted/50 border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={currentUser.photoURL} alt={currentUser.displayName} />
+                    <AvatarFallback>{currentUser.displayName.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="font-medium">{currentUser.displayName}</div>
+                    <div className="text-sm text-muted-foreground">Số dư hiện tại</div>
+                  </div>
+                </div>
+                <Badge variant={currentUserBalance >= 0 ? "outline" : "destructive"} className="ml-auto text-sm font-medium">
+                  {formatNumberWithSeparators(Math.abs(currentUserBalance))} VND
+                  {currentUserBalance >= 0 ? " (dương)" : " (âm)"}
+                </Badge>
+              </div>
+              
+              {currentUserBalance < 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full mt-3 bg-muted/50 border-dashed"
+                  onClick={setNegativeBalanceAmount}
+                >
+                  <ArrowDownIcon className="h-3.5 w-3.5 mr-1.5" />
+                  Trả toàn bộ số dư âm
+                </Button>
+              )}
+            </div>
+          )}
+
           {/* Select user section */}
           <div className="space-y-2">
             <Label>Chọn người nhận</Label>
             <div className="grid grid-cols-2 gap-2 mt-2">
-              {memberUsers.map((user) => (
-                <Button
-                  key={user.id}
-                  type="button"
-                  variant={selectedUser?.id === user.id ? "default" : "outline"}
-                  className="flex items-center gap-2 h-auto py-2 justify-start"
-                  onClick={() => setSelectedUser(user)}
-                >
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.photoURL} alt={user.displayName} />
-                    <AvatarFallback>{user.displayName.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium truncate">{user.displayName}</span>
-                </Button>
-              ))}
+              {memberUsers.map((user) => {
+                // Find this user's balance
+                const userBalance = balances.find(b => b.userId === user.id);
+                const balanceAmount = userBalance?.amount || 0;
+                
+                return (
+                  <Button
+                    key={user.id}
+                    type="button"
+                    variant={selectedUser?.id === user.id ? "default" : "outline"}
+                    className="flex items-center gap-2 h-auto py-2 justify-start relative"  
+                    onClick={() => setSelectedUser(user)}
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.photoURL} alt={user.displayName} />
+                      <AvatarFallback>{user.displayName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium truncate">{user.displayName}</span>
+                      <span className={`text-xs ${balanceAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatNumberWithSeparators(Math.abs(balanceAmount))} {balanceAmount >= 0 ? '+' : '-'}
+                      </span>
+                    </div>
+                  </Button>
+                );
+              })}
             </div>
           </div>
 
