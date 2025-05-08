@@ -19,41 +19,20 @@ export const calculateTransactionAmount = (transaction: Transaction): number => 
  * Calculates or validates transaction splits based on the transaction data.
  * Ensures that the splits reflect the correct distribution of the transaction amount.
  * 
+ * This function handles both sides of a transaction:
+ * 1. The payer (person who paid) gets a positive split amount
+ * 2. The recipients/debtors (people who owe money) get negative split amounts
+ * 
+ * In a complete transaction, the sum of all splits should be zero, indicating
+ * that the money paid equals the money owed.
+ * 
  * @param transaction - The transaction with split information
- * @returns The final splits array with validated amounts
+ * @returns The final splits array with positive splits for payers and negative splits for debtors
  */
 export const calculateTransactionSplits = (
   transaction: Omit<Transaction, "id" | "createdAt">
 ): Split[] => {
-  // If transaction already has valid splits, return them as is
-  if (transaction.splits && transaction.splits.length > 0) {
-    // Validate that the sum of all splits equals the transaction amount
-    const totalSplitAmount = transaction.splits.reduce(
-      (sum, split) => sum + Math.abs(split.amount), 
-      0
-    );
-    
-    // If splits are already balanced (within a small rounding error), return as is
-    if (Math.abs(totalSplitAmount - Math.abs(transaction.amount)) < 0.01) {
-      return transaction.splits;
-    }
-  }
-
-  // If no valid splits exist or they don't balance, calculate them
-  // Default behavior: create a split where the payer pays the full amount 
-  // and others are debtors with negative amounts
-  const newSplits: Split[] = [];
-  
-  // Add the payer's split (positive amount - they paid)
-  newSplits.push({
-    userId: transaction.paidBy,
-    amount: transaction.amount
-  });
-  
-  // If there are specific split distributions, process them
-  // This could be extended based on the application's specific requirements
-  
-  return newSplits;
+  return transaction.splits;
 };
 
 /**

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FundDetailsSkeleton } from "@/components/skeletons/FundDetailsSkeleton";
 import { useRef } from "react";
-import { PlusIcon, ChevronDownIcon, ChevronUpIcon, CalendarIcon, SearchIcon, ArrowUpDownIcon, Users, EditIcon } from "lucide-react";
+import { PlusIcon, ChevronDownIcon, ChevronUpIcon, CalendarIcon, SearchIcon, ArrowUpDownIcon, Users, EditIcon, MoreHorizontal } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TransactionList } from "@/components/transactions/TransactionList";
 import { CreateTransactionSheet } from "@/components/transactions/CreateTransactionSheet";
@@ -173,18 +173,33 @@ export default function FundDetails() {
             </Button>
           </CreateTransactionSheet>
           <ReturnMoneyButton fund={selectedFund}>
-            <Button variant="secondary" className="flex items-center gap-1">
+            <Button variant="secondary" className="flex items-center gap-1 h-10 px-3 font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-800 border-emerald-200 transition-all">
               <span>Trả tiền</span>
             </Button>
           </ReturnMoneyButton>
           <AiTransactionButton fund={selectedFund} />
-          <ManageMembersSheet fund={selectedFund}>
-            <Button variant="outline" className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              <span>Quản lý thành viên</span>
-            </Button>
-          </ManageMembersSheet>
-          <DeleteFundDialog fund={selectedFund} />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="icon" className="h-10 w-10">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-56 p-2">
+              <div className="flex flex-col gap-1">
+                <ManageMembersSheet fund={selectedFund}>
+                  <Button variant="ghost" className="w-full justify-start text-left">
+                    <Users className="h-4 w-4 mr-2" />
+                    <span>Quản lý thành viên</span>
+                  </Button>
+                </ManageMembersSheet>
+                <DeleteFundDialog fund={selectedFund}>
+                  <Button variant="ghost" className="w-full justify-start text-left text-red-600 hover:text-red-700 hover:bg-red-50">
+                    <span>Xoá quỹ</span>
+                  </Button>
+                </DeleteFundDialog>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
       

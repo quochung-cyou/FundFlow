@@ -318,6 +318,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const createTransaction = async (transaction: Omit<Transaction, "id" | "createdAt">) => {
     try {
       setIsLoading(true);
+      console.log(transaction);
       // Add date field if not provided
       const transactionWithDate = {
         ...transaction,
