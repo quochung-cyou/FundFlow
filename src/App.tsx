@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider } from "./context/AppContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { DashboardSkeleton } from "./components/skeletons/DashboardSkeleton";
+import { PWAInitializer, InstallPWAPrompt, FCMInitializer } from "./components/pwa";
 
 // Dynamic imports for code splitting - Components will load only when needed
 // Using chunk-friendly names to improve caching and loading speed
@@ -37,6 +38,12 @@ const App = () => (
       <AppProvider>
         <Toaster />
         <Sonner />
+        {/* PWA Components */}
+        <PWAInitializer autoAskPermission={true} delayPermissionPrompt={5000} />
+        <FCMInitializer />
+        <div className="fixed bottom-4 left-4 z-50 max-w-md w-full">
+          <InstallPWAPrompt />
+        </div>
         <BrowserRouter>
           {/* Using the DashboardSkeleton for a consistent loading experience */}
           <Suspense fallback={<DashboardSkeleton />}>

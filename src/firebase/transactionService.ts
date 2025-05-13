@@ -2,6 +2,8 @@ import { db } from './config';
 import { collection, doc, addDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { Transaction } from '@/types';
 
+// We'll dynamically import the messaging service to prevent initialization issues
+
 // Collection reference
 const TRANSACTIONS_COLLECTION = 'transactions';
 const transactionsRef = collection(db, TRANSACTIONS_COLLECTION);
@@ -39,8 +41,8 @@ export const createTransaction = async (
     // Add to Firestore
     const docRef = await addDoc(transactionsRef, transactionData);
     
-    // Return the created transaction with ID
-    return {
+    // Create the transaction object with ID
+    const newTransaction = {
       ...transactionData,
       id: docRef.id,
       createdAt: now,
@@ -48,6 +50,41 @@ export const createTransaction = async (
       // Convert server timestamp back to number for client use
       updatedAt: now,
     } as Transaction;
+    
+    // Send push notifications to fund members
+    try {
+      // Get the fund document to get member IDs
+      const fundRef = doc(db, 'funds', transaction.fundId);
+      const fundDoc = await getDoc(fundRef);
+      
+      if (fundDoc.exists()) {
+        const fundData = fundDoc.data();
+        const members = fundData.members || [];
+        
+        // If there are members, send notifications
+        if (members.length > 0) {
+          // Dynamically import the messaging service to prevent initialization issues
+          try {
+            const messagingService = await import('./messagingService');
+            await messagingService.sendTransactionNotification(
+              transaction.paidBy,
+              transaction.fundId,
+              docRef.id,
+              transactionData.description,
+              transactionData.amount,
+              members
+            );
+          } catch (importError) {
+            console.error('Error importing messaging service:', importError);
+          }
+        }
+      }
+    } catch (notificationError) {
+      // Don't fail the transaction creation if notification fails
+      console.error('Error sending transaction notifications:', notificationError);
+    }
+    
+    return newTransaction;
   } catch (error) {
     console.error('Error creating transaction:', error);
     throw error;

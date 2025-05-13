@@ -82,9 +82,28 @@ service cloud.firestore {
       // The application logic will ensure they are a member of the fund
       allow create: if isAuthenticated();
       
-      // Only the transaction creator can update or delete
-      allow update, delete: if isAuthenticated() && 
-                             resource.data.createdBy == request.auth.uid;
+      // Transaction creator can update
+      allow update: if isAuthenticated() && 
+                    resource.data.createdBy == request.auth.uid;
+      
+      // Transaction creator OR any fund member can delete
+      allow delete: if isAuthenticated() && 
+                    (resource.data.createdBy == request.auth.uid || 
+                     isFundMember(resource.data.fundId));
+    }
+  
+    
+    // FCM Tokens collection rules
+    match /fcmTokens/{userId} {
+      // Allow users to read their own FCM tokens
+      allow read: if isCurrentUser(userId);
+      
+      // Allow users to create and update their own FCM tokens
+      allow create, update: if isCurrentUser(userId);
+      
+      // Allow any authenticated user to read FCM tokens
+      // This is needed for sending notifications to fund members
+      allow read: if isAuthenticated();
     }
   }
 }

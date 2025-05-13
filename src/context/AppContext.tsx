@@ -84,7 +84,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       setIsAuthLoading(true);
       await loginWithGoogle();
-      toast.success("Đăng nhập thành công!");
+      toast.success("Đăng nhập thành công!", {
+        duration: 1000,
+        
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Đăng nhập thất bại";
       toast.error(errorMessage);

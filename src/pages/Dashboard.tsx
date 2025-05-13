@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { DashboardSkeleton } from "@/components/skeletons/DashboardSkeleton";
+import { TestNotification } from "@/components/pwa";
 
 export default function Dashboard() {
   const { funds, currentUser, isLoading } = useApp();
@@ -63,12 +64,15 @@ export default function Dashboard() {
           </h1>
           <p className="text-muted-foreground">Quản lý chi tiêu nhóm của bạn một cách dễ dàng</p>
         </div>
-        <Button asChild className="group shadow-md hover:shadow-lg transition-all duration-300">
-          <Link to="/funds/new" className="flex items-center gap-1">
-            <PlusIcon className="h-4 w-4 group-hover:rotate-90 transition-transform duration-300" />
-            <span>Tạo quỹ mới</span>
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <TestNotification variant="outline" size="sm" />
+          <Button asChild className="group shadow-md hover:shadow-lg transition-all duration-300">
+            <Link to="/funds/new" className="flex items-center gap-1">
+              <PlusIcon className="h-4 w-4 group-hover:rotate-90 transition-transform duration-300" />
+              <span>Tạo quỹ mới</span>
+            </Link>
+          </Button>
+        </div>
       </motion.div>
 
       <motion.div
