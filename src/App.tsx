@@ -40,7 +40,8 @@ const App = () => (
         <Sonner />
         {/* PWA Components */}
         <PWAInitializer autoAskPermission={true} delayPermissionPrompt={5000} />
-        <FCMInitializer />
+        <FCMInitializer pollingInterval={15000} />
+        {/* NotificationInitializer is no longer needed as FCMInitializer handles notifications */}
         <div className="fixed bottom-4 left-4 z-50 max-w-md w-full">
           <InstallPWAPrompt />
         </div>

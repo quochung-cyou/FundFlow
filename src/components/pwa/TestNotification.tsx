@@ -46,17 +46,6 @@ export function TestNotification({
 
   return (
     <div className="relative">
-      <Button
-        variant={variant}
-        size={size}
-        onClick={handleSendNotification}
-        disabled={isLoading}
-        className={`gap-2 ${className}`}
-      >
-        {isLoading ? 'Sending...' : 'Test Notification'}
-        <Bell className="h-4 w-4" />
-      </Button>
-      
       {showSuccess && (
         <div className="absolute top-full mt-2 p-2 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 text-xs rounded-md whitespace-nowrap">
           Notification sent successfully!

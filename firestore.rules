@@ -105,5 +105,45 @@ service cloud.firestore {
       // This is needed for sending notifications to fund members
       allow read: if isAuthenticated();
     }
+    
+    // Fund notifications collection rules
+    match /fund_notifications/{fundId} {
+      // Helper function to check if a user is a member of a fund or the creator
+      function canAccessFund() {
+        return isAuthenticated() && 
+          (exists(/databases/$(database)/documents/funds/$(fundId)) && 
+           (request.auth.uid in get(/databases/$(database)/documents/funds/$(fundId)).data.members || 
+            request.auth.uid == get(/databases/$(database)/documents/funds/$(fundId)).data.createdBy));
+      }
+      
+      // Allow read if user is a member of the fund or the creator
+      allow read: if canAccessFund();
+      
+      // Allow create if user is a member of the fund or the creator
+      // OR if the user is creating a transaction (special case for notifications)
+      allow create, update: if isAuthenticated() && 
+        (canAccessFund() || 
+         (request.resource.data.keys().hasAny(['fundId']) && 
+          request.resource.data.fundId == fundId));
+      
+      // Allow delete if user is a member of the fund or the creator
+      allow delete: if canAccessFund();
+      
+      // Notifications subcollection rules
+      match /notifications/{notificationId} {
+        // Allow read if user is a member of the fund or the creator
+        allow read: if canAccessFund();
+        
+        // Allow create if user is a member of the fund or the creator
+        // OR if the user is creating a transaction (special case for notifications)
+        allow create, update: if isAuthenticated() && 
+          (canAccessFund() || 
+           (request.resource.data.keys().hasAny(['fundId']) && 
+            request.resource.data.fundId == fundId));
+        
+        // Allow delete if user is a member of the fund or the creator
+        allow delete: if canAccessFund();
+      }
+    }
   }
 }

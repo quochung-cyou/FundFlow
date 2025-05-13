@@ -90,6 +90,7 @@ export function AppNavbar() {
           </Link>
         </nav>
         
+        
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">

@@ -225,9 +225,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     try {
       setIsLoading(true);
-      console.log('Loading transactions for fund:', fundId);
       const fundTransactions = await getFundTransactions(fundId);
-      console.log('Loaded transactions:', fundTransactions);
       
       if (fundTransactions.length === 0) {
         console.log('No transactions found for fund');
@@ -259,7 +257,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return dateB - dateA;
       });
       
-      console.log('Processed transactions:', sortedTransactions);
       setTransactions(sortedTransactions);
     } catch (error) {
       console.error('Error loading transactions:', error);

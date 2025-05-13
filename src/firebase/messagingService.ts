@@ -1,144 +1,194 @@
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { doc, setDoc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, orderBy, Timestamp, onSnapshot, collectionGroup, writeBatch, arrayUnion } from 'firebase/firestore';
 import { db } from './config';
-import { getApp } from 'firebase/app';
 import { User } from '@/types';
-
-// Get the existing Firebase app instance instead of creating a new one
-const app = getApp();
-
-// Initialize Firebase Messaging with the existing app
-const messaging = getMessaging(app);
+import { getUserById } from './userService';
+import { formatCurrency } from '@/lib/utils';
 
 // Collection references
 const USERS_COLLECTION = 'users';
-const FCM_TOKENS_COLLECTION = 'fcmTokens';
+const FUND_NOTIFICATIONS_COLLECTION = 'fund_notifications'; // Parent collection for fund notifications
 
 /**
- * Request permission and get FCM token
- * @returns FCM token or null if permission denied
+ * Create a notification in Firestore for a recipient
+ * @param fundId Fund ID to create the notification in
+ * @param title Notification title
+ * @param body Notification body
+ * @param icon Notification icon URL
+ * @param clickAction URL to navigate to when notification is clicked
+ * @param data Additional data to store with the notification
+ * @param recipients Array of user IDs to receive the notification
+ * @returns Promise<string> ID of the created notification
  */
-export const requestFCMPermission = async (): Promise<string | null> => {
+export const createNotification = async (
+  fundId: string,
+  title: string,
+  body: string,
+  icon: string = '',
+  clickAction: string = '',
+  data: Record<string, string> = {},
+  recipients: string[] = []
+): Promise<string> => {
   try {
-    // Check if notification permission is already granted
-    if (Notification.permission === 'granted') {
-      return await getFCMToken();
-    }
+    // First, check if the fund document exists in the fund_notifications collection
+    const fundNotificationsRef = doc(db, FUND_NOTIFICATIONS_COLLECTION, fundId);
+    const fundNotificationsDoc = await getDoc(fundNotificationsRef);
     
-    // Request permission
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      return await getFCMToken();
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Error requesting FCM permission:', error);
-    return null;
-  }
-};
-
-/**
- * Get FCM token
- * @returns FCM token or null if error
- */
-export const getFCMToken = async (): Promise<string | null> => {
-  try {
-    // Get FCM token
-    const currentToken = await getToken(messaging, {
-      vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY || 'BCQaFtfBgtDoi9z9RAjKv87J_TqvAmmvcalDJDt6OZJAjFI-kxthu0LjW8cYMPERGgFArU5AgSgKR5vwiI26O28'
-    });
-    
-    if (currentToken) {
-      return currentToken;
-    } else {
-      console.log('No registration token available. Request permission to generate one.');
-      return null;
-    }
-  } catch (error) {
-    console.error('Error getting FCM token:', error);
-    return null;
-  }
-};
-
-/**
- * Save FCM token to Firestore for a user
- * @param userId User ID
- * @param token FCM token
- */
-export const saveFCMToken = async (userId: string, token: string): Promise<void> => {
-  try {
-    // Check if token already exists for this user
-    const userTokensRef = doc(db, FCM_TOKENS_COLLECTION, userId);
-    const userTokensDoc = await getDoc(userTokensRef);
-    
-    if (userTokensDoc.exists()) {
-      // Update existing tokens
-      const tokens = userTokensDoc.data().tokens || [];
-      if (!tokens.includes(token)) {
-        await updateDoc(userTokensRef, {
-          tokens: arrayUnion(token),
-          updatedAt: Date.now()
-        });
-      }
-    } else {
-      // Create new tokens document
-      await setDoc(userTokensRef, {
-        userId,
-        tokens: [token],
+    // If the fund document doesn't exist, create it
+    if (!fundNotificationsDoc.exists()) {
+      await setDoc(fundNotificationsRef, {
+        fundId,
         createdAt: Date.now(),
         updatedAt: Date.now()
       });
+      console.log(`Created fund notifications document for fund ${fundId}`);
     }
+    
+    // Generate a unique ID for the notification
+    const timestamp = Date.now();
+    const notificationId = `notification_${timestamp}_${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Reference to the notification document in the fund's subcollection
+    const notificationRef = doc(
+      db, 
+      FUND_NOTIFICATIONS_COLLECTION, 
+      fundId, 
+      'notifications', 
+      notificationId
+    );
+    
+    // Create the notification document
+    await setDoc(notificationRef, {
+      id: notificationId,
+      title,
+      body,
+      icon,
+      clickAction,
+      data,
+      createdAt: timestamp,
+      recipients,
+      readBy: []
+    });
+    
+    console.log(`Notification created in fund ${fundId} for ${recipients.length} recipients`);
+    return notificationId;
   } catch (error) {
-    console.error('Error saving FCM token:', error);
+    console.error('Error creating notification:', error);
     throw error;
   }
 };
 
 /**
- * Get FCM tokens for a list of users
- * @param userIds List of user IDs
- * @returns Map of user IDs to their FCM tokens
+ * Get notifications for a user
+ * @param userId User ID
+ * @returns Array of notifications
  */
-export const getFCMTokensForUsers = async (userIds: string[]): Promise<Map<string, string[]>> => {
+export const getUserNotifications = async (userId: string): Promise<any[]> => {
   try {
-    const tokensMap = new Map<string, string[]>();
+    // First, get all funds the user is a member of
+    const fundsRef = collection(db, 'funds');
+    const fundsQuery = query(fundsRef, where('members', 'array-contains', userId));
+    const fundsSnapshot = await getDocs(fundsQuery);
     
-    // Get tokens for each user
-    for (const userId of userIds) {
+    if (fundsSnapshot.empty) {
+      console.log(`User ${userId} is not a member of any funds`);
+      return [];
+    }
+    
+    const fundIds = fundsSnapshot.docs.map(doc => doc.id);
+    console.log(`User ${userId} is a member of ${fundIds.length} funds:`, fundIds);
+    
+    // Get notifications from each fund
+    const allNotifications: any[] = [];
+    
+    for (const fundId of fundIds) {
       try {
-        const userTokensRef = doc(db, FCM_TOKENS_COLLECTION, userId);
-        const userTokensDoc = await getDoc(userTokensRef);
+        const fundNotificationsRef = collection(db, FUND_NOTIFICATIONS_COLLECTION, fundId, 'notifications');
+        const notificationsQuery = query(fundNotificationsRef, orderBy('createdAt', 'desc'));
+        const notificationsSnapshot = await getDocs(notificationsQuery);
         
-        if (userTokensDoc.exists()) {
-          const tokens = userTokensDoc.data().tokens || [];
-          tokensMap.set(userId, tokens);
-        } else {
-          tokensMap.set(userId, []);
+        if (!notificationsSnapshot.empty) {
+          const fundNotifications = notificationsSnapshot.docs.map(doc => {
+            const data = doc.data();
+            const readBy = data.readBy || [];
+            
+            return {
+              id: doc.id,
+              fundId,
+              ...data,
+              read: readBy.includes(userId),
+              createdAt: new Date(data.createdAt)
+            };
+          });
+          
+          allNotifications.push(...fundNotifications);
         }
-      } catch (userError) {
-        // Handle individual user token fetch errors
-        console.warn(`Could not fetch tokens for user ${userId}:`, userError);
-        tokensMap.set(userId, []);
+      } catch (fundError) {
+        console.error(`Error getting notifications for fund ${fundId}:`, fundError);
+        // Continue with other funds even if one fails
       }
     }
     
-    return tokensMap;
+    // Sort all notifications by creation time (newest first)
+    allNotifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    
+    console.log(`Found ${allNotifications.length} total notifications for user ${userId}`);
+    return allNotifications;
   } catch (error) {
-    console.error('Error getting FCM tokens for users:', error);
-    return new Map();
+    console.error('Error getting user notifications:', error);
+    return [];
   }
 };
 
 /**
- * Send a transaction notification to users
+ * Mark a notification as read
+ * @param notificationId Notification ID
+ * @param fundId Fund ID the notification belongs to
+ * @param userId User ID marking the notification as read
+ * @returns Promise<void>
+ */
+export const markNotificationAsRead = async (
+  notificationId: string,
+  fundId: string,
+  userId: string
+): Promise<void> => {
+  try {
+    // Reference to the notification document in the fund's subcollection
+    const notificationRef = doc(
+      db, 
+      FUND_NOTIFICATIONS_COLLECTION, 
+      fundId, 
+      'notifications', 
+      notificationId
+    );
+    
+    // Get the current notification data
+    const notificationDoc = await getDoc(notificationRef);
+    if (!notificationDoc.exists()) {
+      console.error(`Notification ${notificationId} not found in fund ${fundId}`);
+      return;
+    }
+    
+    // Update the readBy array to include this user
+    await updateDoc(notificationRef, {
+      readBy: arrayUnion(userId),
+      lastReadAt: Date.now()
+    });
+    
+    console.log(`Notification ${notificationId} in fund ${fundId} marked as read by user ${userId}`);
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+  }
+};
+
+/**
+ * Send a transaction notification to users in a fund
  * @param creatorId User ID of the transaction creator
  * @param fundId Fund ID
  * @param transactionId Transaction ID
  * @param description Transaction description
  * @param amount Transaction amount
  * @param recipientIds User IDs to send notification to
+ * @returns Promise<void>
  */
 export const sendTransactionNotification = async (
   creatorId: string,
@@ -149,18 +199,15 @@ export const sendTransactionNotification = async (
   recipientIds: string[]
 ): Promise<void> => {
   try {
-    // Get creator user data
-    let creatorName = 'Thành viên';
+    // Default values
+    let creatorName = 'Someone';
     let creatorPhoto = '/pwa-512x512.png';
     
     try {
-      const creatorRef = doc(db, USERS_COLLECTION, creatorId);
-      const creatorDoc = await getDoc(creatorRef);
-      
-      if (creatorDoc.exists()) {
-        const creatorData = creatorDoc.data() as User;
-        creatorName = creatorData.displayName || 'Thành viên';
-        creatorPhoto = creatorData.photoURL || '/pwa-512x512.png';
+      const creator = await getUserById(creatorId);
+      if (creator) {
+        creatorName = creator.displayName || 'Thành viên';
+        creatorPhoto = creator.photoURL || '/pwa-512x512.png';
       }
     } catch (creatorError) {
       console.warn('Error getting creator data:', creatorError);
@@ -175,88 +222,170 @@ export const sendTransactionNotification = async (
       return;
     }
     
-    // Get FCM tokens for recipients - handle permission errors gracefully
-    let tokensMap: Map<string, string[]>;
-    try {
-      tokensMap = await getFCMTokensForUsers(filteredRecipients);
-    } catch (tokenError) {
-      console.warn('Could not get FCM tokens, using empty map:', tokenError);
-      tokensMap = new Map();
-    }
-    
     // Format amount as currency
-    const formattedAmount = new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      maximumFractionDigits: 0
-    }).format(amount);
+    const formattedAmount = formatCurrency(amount);
     
-    // Create notification payload
-    const payload = {
-      notification: {
-        title: 'Giao dịch mới từ ' + creatorName,
-        body: `${description}: ${formattedAmount}`,
-        icon: creatorPhoto,
-        clickAction: `/funds/${fundId}?transaction=${transactionId}`
-      },
-      data: {
-        fundId,
-        transactionId,
-        creatorId,
-        description,
-        amount: amount.toString(),
-        creatorName,
-        creatorPhoto,
-        timestamp: Date.now().toString(),
-        url: `/funds/${fundId}?transaction=${transactionId}`
-      }
+    // Create notification details
+    const title = 'Giao dịch mới từ ' + creatorName;
+    const body = `${description}: ${formattedAmount}`;
+    const clickAction = `/funds/${fundId}?transaction=${transactionId}`;
+    
+    // Additional data to include with the notification
+    const data = {
+      fundId,
+      transactionId,
+      creatorId,
+      description,
+      amount: amount.toString(),
+      creatorName,
+      timestamp: Date.now().toString(),
     };
     
-    // Send to Cloud Function to deliver notifications
-    // This would typically be handled by a Cloud Function
-    // For now, we'll just log the payload
-    console.log('Notification payload:', payload);
-    console.log('Recipients:', filteredRecipients);
-    console.log('Tokens count:', Array.from(tokensMap.entries()).reduce((count, [_, tokens]) => count + tokens.length, 0));
+    console.log(`Creating notification for fund ${fundId} with ${filteredRecipients.length} recipients`);
     
-    // In a real implementation, you would call a Cloud Function here
-    // await fetch('https://your-cloud-function-url', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     tokens: Array.from(tokensMap.values()).flat(),
-    //     payload
-    //   })
-    // });
-    
-    // For now, we can use the service worker to show a notification locally
-    // This is just for testing purposes
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      try {
-        const registration = await navigator.serviceWorker.ready;
-        await registration.showNotification(payload.notification.title, {
-          body: payload.notification.body,
-          icon: payload.notification.icon,
-          data: payload.data
+    try {
+      // First, check if the fund document exists in the fund_notifications collection
+      const fundNotificationsRef = doc(db, FUND_NOTIFICATIONS_COLLECTION, fundId);
+      console.log(`Now getting fund notifications document for fund ${fundId}`);
+      const fundNotificationsDoc = await getDoc(fundNotificationsRef);
+      
+      console.log(`Fund notifications document for fund ${fundId}:`, fundNotificationsDoc.data());
+      // If the fund document doesn't exist, create it
+      if (!fundNotificationsDoc.exists()) {
+        await setDoc(fundNotificationsRef, {
+          fundId,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
         });
-      } catch (swError) {
-        console.warn('Could not show local notification:', swError);
+        console.log(`Created fund notifications document for fund ${fundId}`);
       }
+      
+      // Create a unique notification ID
+      const timestamp = Date.now();
+      const notificationId = `tx_${transactionId}_${timestamp}`;
+      
+      console.log(`Creating reference`);
+      // Reference to the notification document in the fund's subcollection
+      const notificationRef = doc(
+        db, 
+        FUND_NOTIFICATIONS_COLLECTION, 
+        fundId, 
+        'notifications', 
+        notificationId
+      );
+      
+      console.log(`Creating notification for fund ${fundId} with ID ${notificationId}`);
+      // Create the notification in the fund's subcollection
+      await setDoc(notificationRef, {
+        id: notificationId,
+        transactionId,
+        title,
+        body,
+        icon: creatorPhoto,
+        clickAction,
+        data,
+        createdAt: timestamp,
+        senderId: creatorId,
+        recipients: filteredRecipients,
+        readBy: [] // Array of user IDs who have read this notification
+      });
+      
+      console.log(`Notification created for fund ${fundId} with ID ${notificationId}`);
+    } catch (error) {
+      console.error(`Error creating notification for fund ${fundId}:`, error);
     }
   } catch (error) {
     console.error('Error sending transaction notification:', error);
   }
 };
 
+// Export notification interface for use in other components
+export interface Notification {
+  id: string;
+  title: string;
+  body: string;
+  icon?: string;
+  clickAction?: string;
+  data?: Record<string, any>;
+  read: boolean;
+  createdAt: number | Date;
+  readAt?: number;
+  recipientId: string;
+  senderId?: string;
+}
+
+// Active notification listeners
+type NotificationListener = () => void;
+const activeListeners: Map<string, NotificationListener> = new Map();
+
 /**
- * Set up FCM message handler
- * @param callback Function to call when a message is received
+ * Subscribe to real-time notifications for a user
+ * @param userId User ID to subscribe to notifications for
+ * @param callback Function to call when new notifications are received
+ * @returns Unsubscribe function
  */
-export const onFCMMessage = (callback: (payload: any) => void): void => {
-  onMessage(messaging, (payload) => {
-    console.log('Message received:', payload);
-    callback(payload);
+export const subscribeToUserNotifications = (userId: string, callback: (notifications: Notification[]) => void): () => void => {
+  if (!userId) {
+    console.warn('Cannot subscribe to notifications: No user ID provided');
+    return () => {};
+  }
+
+  // Create a unique key for this listener
+  const listenerKey = `notifications_${userId}_${Date.now()}`;
+  
+  // Check if we already have an active listener for this user
+  if (activeListeners.has(`notifications_${userId}`)) {
+    console.log('Reusing existing notification listener for user', userId);
+    return () => {}; // Return a no-op unsubscribe function
+  }
+
+  try {
+    console.log('Setting up real-time notification listener for user', userId);
+    const notificationsRef = collection(db, NOTIFICATIONS_COLLECTION);
+    const q = query(
+      notificationsRef,
+      where('recipientId', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+
+    // Set up the real-time listener
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notifications = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt instanceof Timestamp 
+          ? doc.data().createdAt.toDate() 
+          : new Date(doc.data().createdAt)
+      })) as Notification[];
+      
+      console.log(`Received ${notifications.length} notifications in real-time for user ${userId}`);
+      callback(notifications);
+    }, (error) => {
+      console.error('Error in notification listener:', error);
+    });
+
+    // Store the unsubscribe function
+    activeListeners.set(`notifications_${userId}`, unsubscribe);
+    
+    return () => {
+      console.log('Unsubscribing from notifications for user', userId);
+      unsubscribe();
+      activeListeners.delete(`notifications_${userId}`);
+    };
+  } catch (error) {
+    console.error('Error setting up notification listener:', error);
+    return () => {}; // Return a no-op unsubscribe function
+  }
+};
+
+/**
+ * Unsubscribe from all active notification listeners
+ */
+export const unsubscribeFromAllNotifications = () => {
+  console.log(`Unsubscribing from ${activeListeners.size} notification listeners`);
+  activeListeners.forEach((unsubscribe, key) => {
+    unsubscribe();
+    console.log('Unsubscribed from', key);
   });
+  activeListeners.clear();
 };
