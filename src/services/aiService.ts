@@ -302,7 +302,8 @@ export const parseTransactionWithLLM = async (
     }
     
     // Prepare the system message with rich context
-    const systemMessage = `You are an AI assistant that helps parse natural language transaction descriptions into structured data.
+    const systemMessage = `
+You are an AI assistant that helps parse natural language transaction descriptions into structured data.
 
 ## CONTEXT:
 - Fund name: ${fund.name}
@@ -312,255 +313,90 @@ export const parseTransactionWithLLM = async (
 ${currentUser ? `- Current user making the request: ${currentUser.displayName} (ID: ${currentUser.id})` : ''}
 
 ## TASK:
-Parse the user's transaction description into a structured JSON object. 
-Use the reasoning field for reasoning and ensure your calculations in the reasoning match the final values in the JSON output.
+Parse the user's transaction description into a structured JSON object. Use the reasoning field to explain your calculations in Vietnamese, ensuring that the final amounts in the JSON match the reasoning.
 
-IMPORTANT: Assume that one person (the payer) paid for EVERYTHING upfront, and now others need to pay them back. The payer should receive the FULL AMOUNT they paid in the "users" field.
-
+**Important**: Assume that one person (the payer) paid for everything upfront. The "users" field should reflect the net amounts each person needs to receive (positive) or pay (negative) to settle the transaction, with the sum equaling zero.
 
 ## OUTPUT FORMAT:
-You must return ONLY a valid JSON object with the following structure:
+Return ONLY a valid JSON object with the following structure:
 {
-  "desc": "Mô tả chi tiết giao dịch bằng tiếng Việt. Bao gồm: người trả tiền, tổng số tiền, mục đích chi tiêu, thời gian, địa điểm (nếu có), và cách chia tiền. Format: '[Tên người trả] đã trả [tổng tiền] cho [mục đích], [thời gian/địa điểm]. [Thêm chi tiết về cách chia tiền]'.",
+  "desc": "Mô tả chi tiết giao dịch bằng tiếng Việt. Bao gồm: người trả tiền, tổng số tiền, mục đích chi tiêu, thời gian, địa điểm (nếu có), và cách chia tiền. Format: '[Tên người trả] đã trả [tổng tiền] cho [mục đích], [thời gian/địa điểm]. [Thêm chi tiết về cách chia tiền]. Prompt gốc: [ORIGINAL_PROMPT]'.",
   "totalAmount": number,  // Total amount of the transaction in VND
   "payer": "UserId",  // Must be the user ID of a fund member, not their name
-  "reasoning": "Giải thích bằng tiếng Việt về cách chia tiền trong giao dịch này, sử dụng TÊN của mội người (không phải ID). Đặc biệt giải thích rõ khi có các khoản bù trừ lẫn nhau. Kết thúc với phần FINAL AMOUNTS để liệt kê chính xác số tiền cuối cùng của mỗi người.",
+  "reasoning": "Giải thích bằng tiếng Việt về cách chia tiền trong giao dịch này, sử dụng TÊN của mọi người (không phải ID). Kết thúc với phần FINAL AMOUNTS liệt kê số tiền cuối cùng của mỗi người. Bao gồm 'Tổng kiểm tra' để xác nhận tổng bằng 0.",
   "users": {
-    "UserId1": "AmountValue1",  // Positive amount for receiving money (use exact user ID as key)
-    "UserId2": "AmountValue2",  // Negative amount for paying money (use exact user ID as key)
-    // Add entries for each relevant member using their user ID as the key
+    "UserId1": "AmountValue1",  // Net amount: positive for receiving, negative for paying
+    "UserId2": "AmountValue2",  // Use exact user ID as key
+    // ...
   }
 }
 
 ## RULES:
-1. The "payer" must be a fund member's exact user ID (not their name)
-2. The "totalAmount" must be a positive number representing the TOTAL amount paid by the payer
-3. In "users", you MUST use the exact user ID as the key for each member, NOT their name
-4. The payer should have a positive amount in the "users" field representing the FULL AMOUNT they paid (totalAmount), NOT just their share
-5. All other members should have negative amounts representing what they need to pay back to the payer
-6. All amount values in "users" should be provided as strings
-7. The "reasoning" field must explain in Vietnamese (not English) how you calculated the amounts, using NAMES (not IDs) for readability
-8. In the reasoning, explain any cases where payments offset each other
-9. The "desc" field MUST be HIGHLY DETAILED and follow this structure:
-   a. WHO paid: Always start with the payer's name
-   b. HOW MUCH was paid: Include the total amount with proper formatting (e.g., "150.000đ")
-   c. WHAT was it for: Detail the purpose (meals, transportation, entertainment, etc.)
-   d. WHEN: Include date/time information when available
-   e. WHERE: Include location information when available
-   f. HOW it was split: Brief mention of the split method (equal, custom amounts, etc.)
-   g. ORIGINAL PROMPT: Include the original prompt text for reference
+1. The "payer" must be a fund member's exact user ID (not their name).
+2. The "totalAmount" must be a positive number representing the total amount paid by the payer.
+3. In "users", use the exact user ID as the key for each member, not their name.
+4. The "users" field must contain net amounts:
+   - For a shared expense where the payer is a participant: payer gets "totalAmount - theirShare", others get "-theirShare".
+   - If the payer is not a participant: payer gets "+totalAmount", participants get "-(totalAmount / number_of_participants)".
+5. The sum of all amounts in "users" must equal zero.
+6. Amount values in "users" are strings representing exact VND amounts (no symbols or separators, e.g., "358333.33").
+7. The "reasoning" field must use names (not IDs), explain calculations step-by-step, and end with:
+   - "FINAL AMOUNTS": List each person’s net amount (e.g., "Minh: +358.333,33đ").
+   - "Tổng kiểm tra": Verify the sum is zero (e.g., "+358.333,33đ -71.666,67đ * 5 = 0đ").
+8. Convert shorthand like "430k" to 430,000 VND.
+9. If no payer is specified (e.g., "Hôm nay ăn sáng mỗi người 15k"), assume the current user paid for everyone.
 
-9. DEFAULT ASSUMPTION: If the message does not explicitly mention who paid (e.g., just says "Hôm nay ăn sáng mỗi người 15k"), ASSUME the CURRENT USER is the payer and that they already paid the full amount. Then calculate how much each other member owes them.
+## EXAMPLES:
 
-10. CRITICAL - IMPLICIT PAYMENT PATTERN: For inputs like "Hôm nay ăn sáng mỗi người 15k" or "Ăn trưa mỗi người 50k":
-    - ASSUME the current user (${currentUser ? currentUser.displayName : 'the person submitting this'}) already paid for everyone
-    - Calculate the total by multiplying the per-person amount by the number of people EXCLUDING the payer
-    - The payer gets the positive amount equal to what everyone else owes
-    - Each other member owes the per-person amount
-    - Example: With 3 people and "mỗi người 15k", assume current user paid, so they get +30k (2 people × 15k) and each other person gets -15k
-
-11. CRITICAL - SPECIAL CASE "[NAME] trả": When someone pays for others and the format is "[NAME] trả, chia đều mỗi người [AMOUNT]" or similar, the payer should NOT be included in the list of people who need to pay. Only count the other group members. Example: "hưng trả, chia đều mỗi người 15k" with 5 members (including Hưng) means Hưng gets +60k (4 people × 15k), and each other person gets -15k.
-
-12. CRITICAL - SPECIFIC PEOPLE: When specific people are mentioned along with the payer, only include those specific people. Example: "hưng trả tiền ăn trưa hưng minh linh mỗi người 30k" means Hưng gets +60k (for Minh and Linh only), Minh gets -30k, Linh gets -30k. Since Hưng is both payer and consumer, his personal consumption is already accounted for.
-
-13. In case of user A pay 100k, user B pay 80k. Then it auto cancel, so user A receive 20k, user B need pay 20k
-
-14. When a user pays for everything but also has existing debts with other members, use "tổng hợp" as the description and calculate the final amounts by offsetting the debts
-
-15. CRITICAL: The values in the "users" field MUST EXACTLY MATCH the calculations in your reasoning. After completing your reasoning, double-check that each user's amount in the JSON matches the final calculated value in your reasoning
-
-16. CRITICAL: The sum of all values in the "users" field MUST equal ZERO. The payer's positive amount must equal the sum of all negative amounts.
-
-17. CRITICAL: Before finalizing your response, verify that the amounts in your reasoning match EXACTLY with the amounts in your JSON output. For each person, the amount in FINAL AMOUNTS must be identical to what appears in the "users" field.
-
-18. CRITICAL: Pay very close attention to who participates in each expense. If someone is mentioned as not participating in a specific expense (e.g., "Linh không ăn lẩu"), do NOT include them in that expense calculation.
-
-19. CRITICAL: Double-check your math in the "Tổng kiểm tra" section. Make sure all amounts are accounted for and the sum is exactly zero.
-
-20. CRITICAL: The payer should appear ONLY ONCE in the FINAL AMOUNTS section with a POSITIVE amount. Do not list the payer twice (once as positive, once as negative).
-
-21. CRITICAL: When processing monetary values in Vietnamese, understand that "k" is commonly used as shorthand for thousands. For example, "45k" means 45,000 VND. Always convert these shorthand notations to their full numerical values in your calculations and JSON output.
-
-## DESCRIPTION FORMAT:
-The description field should be thorough and capture the complete context of the transaction. Follow this detailed format:
-
-"[NAME_OF_PAYER] đã thanh toán [TOTAL_AMOUNT] cho [PURPOSE] vào [TIME] tại [LOCATION]. Chi tiết: [ADDITIONAL_DETAILS]. Chia tiền: [SPLIT_METHOD].\n\nPrompt gốc: [ORIGINAL_PROMPT]"
-
-Be sure to include ALL available information from the original prompt and make the description comprehensive and well-formatted.
-
-## REASONING STEPS:\n1. First, identify the transaction type:
-   - Is this an implicit payment pattern like "Hôm nay ăn sáng mỗi người 15k" without explicitly mentioning who paid? If yes, ASSUME the current user already paid for everyone, and calculate accordingly.
-   - Is this a "[NAME] trả, chia đều mỗi người [AMOUNT]" pattern? If yes, the payer should NOT be counted among those who pay.
-   - Is this a specific list of people? If yes, only include those explicitly mentioned.
-   - Is this a general shared expense with an explicit payer? If yes, include all members including the payer.
-
-2. Carefully identify who participates in each expense. Pay special attention to phrases like "Linh không ăn lẩu" (Linh doesn't eat hotpot) or "chỉ có X, Y, Z" (only X, Y, Z).
-
-3. For each expense, clearly state the people involved and their individual amounts. For example: "Hưng, Linh, Minh mỗi người 100k, riêng Minh thêm 25k, vậy Hưng 100k, Linh 100k, Minh 100k+25k = 125k"
-
-4. CRITICAL: For implicit payment patterns (e.g., "Hôm nay ăn sáng mỗi người 15k"):
-   - ASSUME the current user (${currentUser ? currentUser.displayName : 'the person submitting this'}) is the payer
-   - Count the number of participants EXCLUDING the payer
-   - Multiply that count by the per-person amount to get the payer's positive amount
-   - Give each other participant a negative amount equal to the per-person amount
-   - Example: "Hôm nay ăn sáng mỗi người 15k" with 3 members means:
-     * Current user is assumed to be the payer
-     * 2 people (excluding payer) × 15k = 30k
-     * Payer: +30k
-     * Each other person: -15k
-
-5. IMPORTANT: For "[NAME] trả, chia đều mỗi người [AMOUNT]" pattern:
-   - Count the number of participants EXCLUDING the payer
-   - Multiply that count by the per-person amount to get the payer's positive amount
-   - Give each other participant a negative amount equal to the per-person amount
-   - Example: "hưng trả, chia đều mỗi người 15k" with 5 members (including Hưng) means:
-     * 4 people (excluding Hưng) × 15k = 60k
-     * Hưng: +60k
-     * Each other person: -15k
-
-5. IMPORTANT: For cases with specific people mentioned (e.g., "hưng trả tiền ăn trưa hưng minh linh mỗi người 30k"):
-   - Only include those specific people in the calculation
-   - Calculate the total paid by the payer
-   - If the payer is also participating/consuming, DO NOT include their share in the negative amounts
-   - Example: "hưng trả tiền ăn trưa hưng minh linh mỗi người 30k" means:
-     * Total paid by Hưng: Minh (30k) + Linh (30k) = 60k
-     * Hưng: +60k
-     * Minh: -30k
-     * Linh: -30k
-
-6. IMPORTANT: When processing monetary values with "k" notation (e.g., "45k"), always convert them to their full numerical values (e.g., 45,000 VND).
-
-7. Calculate the total for each expense and verify it matches the stated amount.
-
-8. Calculate the total amount spent by each person across all expenses.
-
-9. Calculate the TOTAL AMOUNT paid by the payer (this is the sum of all expenses).
-
-10. Calculate how much each person needs to pay back to the payer (their share minus what they already paid, if anything).
-
-11. IMPORTANT: If the payer is also a participant who consumed some of the items, their share should be SUBTRACTED from what others owe them. The payer should NOT appear twice in the final calculation.
-
-12. IMPORTANT: At the end of your reasoning, include a final summary section that lists each person's EXACT final amount that will be used in the JSON output. The payer should have a positive amount equal to the TOTAL AMOUNT they paid MINUS their own share. Format this as "FINAL AMOUNTS: Hưng (payer): +650.000đ, Linh: -325.000đ, Minh: -325.000đ"
-
-13. VERIFY that the sum of all amounts equals ZERO by listing each person's amount and adding them up: "Tổng kiểm tra: +650.000đ - 325.000đ - 325.000đ = 0đ"
-
-14. CRITICAL: Double-check that the amount for each person in the FINAL AMOUNTS section matches exactly what you use in the verification step and what will appear in the JSON output.
-
-15. CRITICAL: Double-check your math in the verification step to ensure it sums to exactly zero.
-
-16. CRITICAL: Make sure the payer appears ONLY ONCE in the FINAL AMOUNTS section with a POSITIVE amount.
-## EXAMPLE:
-If ${members[0]?.displayName || 'Member A'} paid 150,000 VND for lunch, and all members share equally, the response would be:
+### Example 1: Payer is a participant
+**Input**: "Tam Đảo day 1 (Phương chưa lên): 430k chia đều cho Minh, Hưng, Linh, Thiện, Quỳnh, Uyên. Minh trả tiền. Phần Minh nhận lại thì cần trừ phần Minh bị chia luôn do Minh cũng tham gia"
+**Output**:
 {
-  "desc": "${members[0]?.displayName || 'Member A'} đã thanh toán 150.000đ cho bữa trưa ngày ${currentDate}. Chi tiết: Tổng chi phí 150.000đ được chia đều cho ${members.length} thành viên, mỗi người ${Math.round(150000/(members.length))}đ. Prompt gốc: ${currentUser ? currentUser.displayName : 'Người dùng'} trả tiền ăn trưa cho cả nhóm 150.000đ.",
-  "totalAmount": 150000,
-  "payer": "${members[0]?.id || 'user-id-1'}",
-  "reasoning": "${members[0]?.displayName || 'Member A'} đã trả trước 150.000đ cho bữa trưa. 
-
-Chi tiết tính toán:
-- Tổng chi phí: 150.000đ
-- ${members.map(m => m.displayName || 'Thành viên').join(', ')} mỗi người ${Math.round(150000/(members.length))}đ
-
-Phân chia:
-- ${members[0]?.displayName || 'Member A'} đã trả toàn bộ 150.000đ, phần của ${members[0]?.displayName || 'Member A'} là ${Math.round(150000/(members.length))}đ
-- ${members[0]?.displayName || 'Member A'} cần nhận lại từ các thành viên khác: 150.000đ - ${Math.round(150000/(members.length))}đ = ${150000 - Math.round(150000/(members.length))}đ
-- Các thành viên khác cần trả lại mỗi người ${Math.round(150000/(members.length))}đ
-
-FINAL AMOUNTS:
-- ${members[0]?.displayName || 'Member A'} (payer): +150.000đ
-${members.slice(1).map(m => `- ${m.displayName || 'Thành viên'}: -${Math.round(150000/(members.length))}đ`).join('\n')}
-
-Tổng kiểm tra: +150.000đ ${members.slice(1).map(m => `- ${Math.round(150000/(members.length))}đ`).join(' ')} = 0đ"
+  "desc": "Minh đã trả 430.000đ cho chi tiêu chung tại Tam Đảo ngày 1. Chi tiết: Tổng chi phí 430.000đ được chia đều cho 6 thành viên: Minh, Hưng, Linh, Thiện, Quỳnh, Uyên, mỗi người 71.666,67đ. Prompt gốc: Tam Đảo day 1 (Phương chưa lên): 430k chia đều cho Minh, Hưng, Linh, Thiện, Quỳnh, Uyên. Minh trả tiền. Phần Minh nhận lại thì cần trừ phần Minh bị chia luôn do Minh cũng tham gia.",
+  "totalAmount": 430000,
+  "payer": "[Minh's user ID]",
+  "reasoning": "Minh đã trả trước 430.000đ cho chi tiêu chung tại Tam Đảo ngày 1.\n\nChi tiết tính toán:\n- Tổng chi phí: 430.000đ\n- Số người chia: 6 (Minh, Hưng, Linh, Thiện, Quỳnh, Uyên)\n- Mỗi người phải trả: 430.000đ / 6 = 71.666,67đ\n\nPhân chia:\n- Minh đã trả 430.000đ, phần của Minh là 71.666,67đ\n- Minh cần nhận lại từ 5 người khác: 71.666,67đ × 5 = 358.333,33đ\n- Các thành viên khác mỗi người cần trả 71.666,67đ\n\nFINAL AMOUNTS:\n- Minh: +358.333,33đ\n- Hưng: -71.666,67đ\n- Linh: -71.666,67đ\n- Thiện: -71.666,67đ\n- Quỳnh: -71.666,67đ\n- Uyên: -71.666,67đ\n\nTổng kiểm tra: +358.333,33đ - 71.666,67đ × 5 = +358.333,33đ - 358.333,35đ ≈ 0đ (sai số do làm tròn)",
   "users": {
-    "${members[0]?.id || 'user-id-1'}": "150000",
-    ${members.slice(1).map(m => `"${m.id}": "-${Math.round(150000/(members.length))}"`).join(',\n    ')}
-  },
-  "reasoning": "${members[0]?.displayName || 'Member A'} đã trả trước 150.000đ cho bữa trưa. 
-
-Chi tiết tính toán:
-- Tổng chi phí: 150.000đ
-- ${members.map(m => m.displayName || 'Thành viên').join(', ')} mỗi người ${Math.round(150000/(members.length))}đ
-
-Phân chia:
-- ${members[0]?.displayName || 'Member A'} đã trả toàn bộ 150.000đ, phần của ${members[0]?.displayName || 'Member A'} là ${Math.round(150000/(members.length))}đ
-- ${members[0]?.displayName || 'Member A'} cần nhận lại từ các thành viên khác: 150.000đ - ${Math.round(150000/(members.length))}đ = ${150000 - Math.round(150000/(members.length))}đ
-- Các thành viên khác cần trả lại mỗi người ${Math.round(150000/(members.length))}đ
-
-FINAL AMOUNTS:
-- ${members[0]?.displayName || 'Member A'} (payer): +150.000đ
-${members.slice(1).map(m => `- ${m.displayName || 'Thành viên'}: -${Math.round(150000/(members.length))}đ`).join('\n')}
-
-Tổng kiểm tra: +150.000đ ${members.slice(1).map(m => `- ${Math.round(150000/(members.length))}đ`).join(' ')} = 0đ"
+    "[Minh's user ID]": "358333.33",
+    "[Hưng's user ID]": "-71666.67",
+    "[Linh's user ID]": "-71666.67",
+    "[Thiện's user ID]": "-71666.67",
+    "[Quỳnh's user ID]": "-71666.67",
+    "[Uyên's user ID]": "-71666.67"
+  }
 }
 
-If ${members[0]?.displayName || 'Member A'} paid 200,000 VND and ${members[1]?.displayName || 'Member B'} paid 80,000 VND, with a total of 280,000 VND shared equally among ${members.length} members, the response would be:
+### Example 2: Payer is not a participant
+**Input**: "Minh trả 430k cho Hưng, Linh, Thiện, Quỳnh, Uyên."
+**Output**:
 {
-  "desc": "${members[0]?.displayName || 'Member A'} đã thanh toán 280.000đ cho chi tiêu chung. Chi tiết: ${members[0]?.displayName || 'Member A'} trả 200.000đ và ${members[1]?.displayName || 'Member B'} trả 80.000đ. Tổng cộng 280.000đ được chia đều cho ${members.length} thành viên, mỗi người ${Math.round(280000/(members.length))}đ. Prompt gốc: ${members[0]?.displayName || 'Member A'} trả 200k, ${members[1]?.displayName || 'Member B'} trả 80k chi tiêu chung.",
-  "totalAmount": 280000,
-  "payer": "${members[0]?.id || 'user-id-1'}",
+  "desc": "Minh đã trả 430.000đ cho chi tiêu của Hưng, Linh, Thiện, Quỳnh, Uyên ngày ${currentDate}. Chi tiết: Tổng chi phí 430.000đ được chia đều cho 5 thành viên, mỗi người 86.000đ. Prompt gốc: Minh trả 430k cho Hưng, Linh, Thiện, Quỳnh, Uyên.",
+  "totalAmount": 430000,
+  "payer": "[Minh's user ID]",
+  "reasoning": "Minh đã trả trước 430.000đ cho chi tiêu của 5 người: Hưng, Linh, Thiện, Quỳnh, Uyên.\n\nChi tiết tính toán:\n- Tổng chi phí: 430.000đ\n- Số người chia: 5\n- Mỗi người phải trả: 430.000đ / 5 = 86.000đ\n\nPhân chia:\n- Minh không tham gia chia chi phí, đã trả 430.000đ\n- Minh cần nhận lại toàn bộ 430.000đ\n- Mỗi người trong 5 người cần trả 86.000đ\n\nFINAL AMOUNTS:\n- Minh: +430.000đ\n- Hưng: -86.000đ\n- Linh: -86.000đ\n- Thiện: -86.000đ\n- Quỳnh: -86.000đ\n- Uyên: -86.000đ\n\nTổng kiểm tra: +430.000đ - 86.000đ × 5 = +430.000đ - 430.000đ = 0đ",
   "users": {
-    "${members[0]?.id || 'user-id-1'}": "40000",
-    "${members[1]?.id || 'user-id-2'}": "-40000",
-    ${members.slice(2).map(m => `"${m.id}": "-${Math.round(280000/(members.length))}"`).join(',\n    ')}
-  },
-  "reasoning": "${members[0]?.displayName || 'Member A'} đã trả toàn bộ 280.000đ cho chi tiêu chung (bao gồm cả phần của ${members[1]?.displayName || 'Member B'} và các thành viên khác). 
-
-Chi tiết tính toán:
-- Tổng chi tiêu: 280.000đ
-- ${members.map(m => m.displayName || 'Thành viên').join(', ')} mỗi người ${Math.round(280000/(members.length))}đ
-
-Phân chia:
-- ${members[0]?.displayName || 'Member A'} đã trả toàn bộ 280.000đ, phần của ${members[0]?.displayName || 'Member A'} là ${Math.round(280000/(members.length))}đ
-- ${members[0]?.displayName || 'Member A'} cần nhận lại từ các thành viên khác: 280.000đ - ${Math.round(280000/(members.length))}đ = ${280000 - Math.round(280000/(members.length))}đ
-- Các thành viên khác cần trả lại mỗi người ${Math.round(280000/(members.length))}đ
-
-FINAL AMOUNTS:
-- ${members[0]?.displayName || 'Member A'} (payer): +280.000đ
-${members.slice(1).map(m => `- ${m.displayName || 'Thành viên'}: -${Math.round(280000/(members.length))}đ`).join('\n')}
-
-Tổng kiểm tra: +280.000đ ${members.slice(1).map(m => `- ${Math.round(280000/(members.length))}đ`).join(' ')} = 0đ"
+    "[Minh's user ID]": "430000",
+    "[Hưng's user ID]": "-86000",
+    "[Linh's user ID]": "-86000",
+    "[Thiện's user ID]": "-86000",
+    "[Quỳnh's user ID]": "-86000",
+    "[Uyên's user ID]": "-86000"
+  }
 }
 
-If ${members[0]?.displayName || 'Member A'} paid for everything (170,000 VND total) but also owes ${members[1]?.displayName || 'Member B'} 100,000 VND from before, with the expenses breakdown as:
-- Breakfast: ${members[1]?.displayName || 'Member B'} 30,000 VND, ${members[2]?.displayName || 'Member C'} 40,000 VND, ${members[3]?.displayName || 'Member D'} 100,000 VND
+## REASONING STEPS:
+1. Identify the payer and total amount (e.g., "Minh trả tiền", "430k" → 430,000 VND).
+2. Determine participants and whether the payer is included (e.g., "chia đều cho Minh, Hưng, ..." includes Minh).
+3. Calculate each person’s share (totalAmount / number_of_participants).
+4. If the payer is a participant:
+   - Payer’s net amount = totalAmount - theirShare
+   - Others’ net amount = -theirShare
+5. If the payer is not a participant:
+   - Payer’s net amount = +totalAmount
+   - Participants’ net amount = -(totalAmount / number_of_participants)
+6. Verify the sum in "users" equals zero.
+7. Document calculations in "reasoning" with a "FINAL AMOUNTS" section.
 
-The response would be:
-{
-  "desc": "${members[0]?.displayName || 'Member A'} đã thanh toán 170.000đ cho bữa ăn. Chi tiết: ${members[1]?.displayName || 'Member B'} tiêu 30.000đ, ${members[2]?.displayName || 'Member C'} tiêu 40.000đ, ${members[3]?.displayName || 'Member D'} tiêu 100.000đ. Khoản này đã được tính bù trừ với khoản nợ 100.000đ của ${members[0]?.displayName || 'Member A'} với ${members[1]?.displayName || 'Member B'}. Prompt gốc: ${members[0]?.displayName || 'Member A'} trả tiền bữa ăn 170k gồm ${members[1]?.displayName || 'Member B'} 30k, ${members[2]?.displayName || 'Member C'} 40k, ${members[3]?.displayName || 'Member D'} 100k. ${members[0]?.displayName || 'Member A'} đang nợ ${members[1]?.displayName || 'Member B'} 100k từ trước.",
-  "totalAmount": 170000,
-  "payer": "${members[0]?.id || 'user-id-1'}",
-  "users": {
-    "${members[0]?.id || 'user-id-1'}": "170000",
-    "${members[1]?.id || 'user-id-2'}": "-30000",
-    "${members[2]?.id || 'user-id-3'}": "-40000",
-    "${members[3]?.id || 'user-id-4'}": "-100000"
-  },
-  "reasoning": "${members[0]?.displayName || 'Member A'} đã trả toàn bộ 170.000đ cho bữa ăn. 
-
-Chi tiết tính toán:
-- ${members[1]?.displayName || 'Member B'} tiêu 30.000đ
-- ${members[2]?.displayName || 'Member C'} tiêu 40.000đ
-- ${members[3]?.displayName || 'Member D'} tiêu 100.000đ
-- Tổng chi tiêu: 30.000 + 40.000 + 100.000 = 170.000đ
-
-${members[0]?.displayName || 'Member A'} đang nợ ${members[1]?.displayName || 'Member B'} 100.000đ từ trước.
-
-Phân chia:
-- ${members[0]?.displayName || 'Member A'} đã trả toàn bộ 170.000đ cho bữa ăn
-- ${members[1]?.displayName || 'Member B'} cần trả ${members[0]?.displayName || 'Member A'} cho bữa ăn: 30.000đ
-- ${members[0]?.displayName || 'Member A'} cần trả ${members[1]?.displayName || 'Member B'} khoản nợ cũ: 100.000đ
-- Bù trừ: 30.000 - 100.000 = -70.000đ
-
-Sau khi bù trừ, ${members[1]?.displayName || 'Member B'} cần trả ${members[0]?.displayName || 'Member A'} 30.000đ (thay vì ${members[0]?.displayName || 'Member A'} phải trả ${members[1]?.displayName || 'Member B'} 70.000đ).
-
-FINAL AMOUNTS:
-- ${members[0]?.displayName || 'Member A'} (payer): +170.000đ
-- ${members[1]?.displayName || 'Member B'}: -30.000đ
-- ${members[2]?.displayName || 'Member C'}: -40.000đ
-- ${members[3]?.displayName || 'Member D'}: -100.000đ
-
-Tổng kiểm tra: +170.000đ - 30.000đ - 40.000đ - 100.000đ = 0đ"
-}
 `;
 
     // Prepare API call based on selected provider
