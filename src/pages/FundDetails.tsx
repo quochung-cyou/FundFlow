@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FundDetailsSkeleton } from "@/components/skeletons/FundDetailsSkeleton";
 import { useRef } from "react";
-import { PlusIcon, ChevronDownIcon, ChevronUpIcon, CalendarIcon, SearchIcon, ArrowUpDownIcon, Users, EditIcon, MoreHorizontal } from "lucide-react";
+import { PlusIcon, ChevronDownIcon, ChevronUpIcon, CalendarIcon, SearchIcon, ArrowUpDownIcon, Users, EditIcon, MoreHorizontal, Receipt, CreditCard, Calculator } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TransactionList } from "@/components/transactions/TransactionList";
 import { PersonalTransactionList } from "@/components/transactions/PersonalTransactionList";
@@ -17,7 +17,7 @@ import { EditFundSheet } from "@/components/funds/EditFundSheet";
 import { AiTransactionButton } from "@/components/ai/AiTransactionButton";
 import { BalanceCard } from "@/components/balances/BalanceCard";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -27,8 +27,10 @@ import { cn } from "@/lib/utils";
 import { FundSummaryChart } from "@/components/funds/FundSummaryChart";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { FundInfoCard } from "@/components/funds/FundInfoCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { calculateTotalExpense } from "@/utils/transactionUtils";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
 
 export default function FundDetails() {
   const { id } = useParams();
@@ -217,36 +219,54 @@ export default function FundDetails() {
           <TabsContent value="summary" className="animate-fade-in">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               
-              <Card className="hover-scale">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">Số giao dịch</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{transactionStats.total}</div>
-                </CardContent>
-              </Card>
-              
-              <Card className="hover-scale">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">Tổng số tiền</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(calculateTotalExpense(filteredTransactions))}
+              <SpotlightCard 
+                size="large"
+                className="hover-scale flex items-center justify-between" 
+                spotlightColor="#3b82f630"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="rounded-full bg-blue-100 dark:bg-blue-900/30 p-1.5">
+                    <Receipt className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                   </div>
-                </CardContent>
-              </Card>
+                  <h3 className="text-sm text-muted-foreground">Số giao dịch</h3>
+                </div>
+                <div className="text-lg font-bold">{transactionStats.total}</div>
+              </SpotlightCard>
               
-              <Card className="hover-scale">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">Trung bình / giao dịch</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {formatCurrency(calculateTotalExpense(filteredTransactions) / transactionStats.total)}
+              <SpotlightCard 
+                size="large"
+                className="hover-scale flex items-center justify-between" 
+                spotlightColor="#22c55e30"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="rounded-full bg-green-100 dark:bg-green-900/30 p-1.5">
+                    <CreditCard className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                   </div>
-                </CardContent>
-              </Card>
+                  <h3 className="text-sm text-muted-foreground">Tổng số tiền</h3>
+                </div>
+                <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                  {formatCurrency(calculateTotalExpense(filteredTransactions))}
+                </div>
+              </SpotlightCard>
+              
+              <SpotlightCard 
+                size="large"
+                className="hover-scale flex items-center justify-between" 
+                spotlightColor="#f59e0b30"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="rounded-full bg-amber-100 dark:bg-amber-900/30 p-1.5">
+                    <Calculator className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <h3 className="text-sm text-muted-foreground">Trung bình / giao dịch</h3>
+                </div>
+                <div className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                  {formatCurrency(calculateTotalExpense(filteredTransactions) / transactionStats.total)}
+                </div>
+              </SpotlightCard>
+              
+              {/* Information Card */}
+              <FundInfoCard className="hover-scale" />
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">

@@ -56,15 +56,15 @@ export function InstallPWAPrompt() {
       const choiceResult = await installPrompt.userChoice;
       
       if (choiceResult.outcome === 'accepted') {
-        console.log('User accepted the install prompt');
+        console.log('Người dùng đã chấp nhận lời nhắc cài đặt');
       } else {
-        console.log('User dismissed the install prompt');
+        console.log('Người dùng đã từ chối lời nhắc cài đặt');
       }
       
       setInstallPrompt(null);
       setIsVisible(false);
     } catch (error) {
-      console.error('Error during installation:', error);
+      console.error('Lỗi trong quá trình cài đặt:', error);
     }
   };
 
@@ -84,7 +84,7 @@ export function InstallPWAPrompt() {
       <CardHeader className="space-y-1">
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl font-semibold">
-            Install Fund Flow App
+            Cài đặt Ứng dụng Fund Flow
           </CardTitle>
           <Button variant="ghost" size="icon" onClick={handleDismiss} className="h-8 w-8">
             <X className="h-4 w-4" />
@@ -92,34 +92,34 @@ export function InstallPWAPrompt() {
         </div>
         <CardDescription>
           {isIOSDevice 
-            ? 'Install this app on your iOS device for a better experience'
-            : 'Install this app on your device for faster access and a better experience'}
+            ? 'Cài đặt ứng dụng này trên thiết bị iOS của bạn để có trải nghiệm tốt hơn'
+            : 'Cài đặt ứng dụng này trên thiết bị của bạn để truy cập nhanh hơn và có trải nghiệm tốt hơn'}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {isIOSDevice ? (
           <div className="space-y-2 text-sm">
-            <p>To install on your iOS device:</p>
+            <p>Để cài đặt trên thiết bị iOS của bạn:</p>
             <ol className="list-decimal pl-5 space-y-1">
-              <li>Tap the share icon <span className="inline-block px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded">􀈂</span> at the bottom of the screen</li>
-              <li>Scroll down and tap <strong>"Add to Home Screen"</strong></li>
-              <li>Tap <strong>"Add"</strong> in the top-right corner</li>
+              <li>Nhấn vào biểu tượng chia sẻ <span className="inline-block px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded">􀈂</span> ở cuối màn hình</li>
+              <li>Cuộn xuống và nhấn <strong>"Thêm vào Màn hình chính"</strong></li>
+              <li>Nhấn <strong>"Thêm"</strong> ở góc trên bên phải</li>
             </ol>
           </div>
         ) : (
           <p className="text-sm">
-            Install this application on your device to use it even when you're offline.
-            It won't take up much space and you can uninstall it anytime.
+            Cài đặt ứng dụng này trên thiết bị của bạn để sử dụng ngay cả khi bạn ngoại tuyến.
+            Ứng dụng sẽ không chiếm nhiều dung lượng và bạn có thể gỡ cài đặt bất cứ lúc nào.
           </p>
         )}
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button variant="outline" onClick={handleDismiss}>
-          Maybe Later
+          Để sau
         </Button>
         {!isIOSDevice && installPrompt && (
           <Button onClick={handleInstall} className="gap-2">
-            Install Now
+            Cài đặt ngay
             <Download className="h-4 w-4" />
           </Button>
         )}

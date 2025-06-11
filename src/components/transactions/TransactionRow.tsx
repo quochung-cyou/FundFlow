@@ -1,4 +1,3 @@
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useApp } from "@/context/AppContext";
 import { Transaction } from "@/types";
@@ -53,7 +52,7 @@ export function TransactionRow({ transaction }: TransactionRowProps) {
   return (
     <motion.div 
       className={cn(
-        "p-4 rounded-lg mb-3 border border-border/40 transition-all duration-300 relative",
+        "p-4 rounded-lg mb-3 border border-border/40 transition-all duration-300 relative group",
         isExpanded ? "bg-blue-50/80 shadow-md" : "bg-card hover:border-blue-200 hover:bg-blue-50/50"
       )}
       initial={{ opacity: 0, y: 10 }}
@@ -62,41 +61,6 @@ export function TransactionRow({ transaction }: TransactionRowProps) {
       transition={{ duration: 0.2 }}
       layout
     >
-      {/* Delete button - always visible on mobile with better positioning and larger hit area */}
-      <div className="absolute top-3 right-3 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10">
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogTrigger asChild>
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              className="h-8 w-8 rounded-full hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center"
-              aria-label="Delete transaction"
-              title="Delete transaction"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent className="sm:max-w-md">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Xác nhận xóa giao dịch</AlertDialogTitle>
-              <AlertDialogDescription>
-                Bạn có chắc chắn muốn xóa giao dịch "{transaction.description}"? 
-                Hành động này không thể hoàn tác.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="gap-2">
-              <AlertDialogCancel className="sm:min-w-[100px]">Hủy</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleDelete} 
-                className="bg-rose-500 hover:bg-rose-600 text-white sm:min-w-[100px]"
-              >
-                Xác nhận xóa
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-
       {/* Main transaction row content */}
       <div className="flex justify-between items-start gap-4">
         {/* Left side: Avatar and transaction info */}
@@ -123,7 +87,7 @@ export function TransactionRow({ transaction }: TransactionRowProps) {
             <div className="flex flex-col mb-1">
               <div 
                 className={cn(
-                  "font-medium text-sm sm:text-base transition-colors duration-300 break-words",
+                  "font-medium text-sm sm:text-base transition-colors duration-300 break-words pr-2",
                   isLongDescription && !showFullDescription ? "line-clamp-2" : ""
                 )}
               >
@@ -171,8 +135,44 @@ export function TransactionRow({ transaction }: TransactionRowProps) {
           </div>
         </div>
 
-        {/* Right side: Time and split indicators */}
-        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+        {/* Right side: Time, split indicators, and delete button */}
+        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+          {/* Delete button - positioned at top right with better styling */}
+          <div className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-7 w-7 rounded-full bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center"
+                  aria-label="Delete transaction"
+                  title="Delete transaction"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="sm:max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Xác nhận xóa giao dịch</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Bạn có chắc chắn muốn xóa giao dịch "{transaction.description}"? 
+                    Hành động này không thể hoàn tác.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="gap-2">
+                  <AlertDialogCancel className="sm:min-w-[100px]">Hủy</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleDelete} 
+                    className="bg-rose-500 hover:bg-rose-600 text-white sm:min-w-[100px]"
+                  >
+                    Xác nhận xóa
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+
+          {/* Time display */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -187,7 +187,8 @@ export function TransactionRow({ transaction }: TransactionRowProps) {
             </Tooltip>
           </TooltipProvider>
           
-          <div className="flex flex-wrap justify-end gap-1 mt-1 max-w-[120px]">
+          {/* Split indicators */}
+          <div className="flex flex-wrap justify-end gap-1 max-w-[120px]">
             {transaction.splits.map((split, index) => {
               if (split.amount === 0) return null;
               const user = getUserById(split.userId);
