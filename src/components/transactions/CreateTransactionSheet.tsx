@@ -19,6 +19,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn, formatNumberWithSeparators, numberToVietnameseText } from "@/lib/utils";
 import { parseTransactionWithLLM, LLMTransactionResponse } from "@/services/aiService";
 import { getAIPromptsForFund } from "@/services/aiPromptStorage";
+import { TransactionFormValidator, ValidationError } from "@/services/TransactionFormValidator";
+import { ValidationWarning } from "@/components/ui/validation-warning";
 
 interface CreateTransactionSheetProps {
   fund: Fund;
@@ -50,11 +52,19 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
   const [localFund, setLocalFund] = useState(fund);
   const [isReprocessingAI, setIsReprocessingAI] = useState(false);
   const [aiPrompt, setAiPrompt] = useState(initialData?.aiPrompt || "");
-  const [splits, setSplits] = useState<{ userId: string; amount: number }[]>([]); 
+  const [splits, setSplits] = useState<{ userId: string; amount: number }[]>([]);
   const [showDescriptionPresets, setShowDescriptionPresets] = useState(false);
   const descriptionInputRef = useRef<HTMLInputElement>(null);
   const [editingSplitUserId, setEditingSplitUserId] = useState<string | null>(null);
   const [editingSplitValue, setEditingSplitValue] = useState<string>("");
+  
+  // Validation state
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [showValidation, setShowValidation] = useState(false);
+  const [lastValidatedAt, setLastValidatedAt] = useState<number>(0);
+  
+  // Create validator instance
+  const validatorRef = useRef<TransactionFormValidator | null>(null);
 
   // Handle fund changes
   useEffect(() => {
@@ -107,12 +117,48 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
       };
     });
   }, [localFund.members, getUserById]);
+  
+  // Initialize validator when member users change
+  useEffect(() => {
+    if (memberUsers.length > 0) {
+      validatorRef.current = new TransactionFormValidator(memberUsers);
+    }
+  }, [memberUsers]);
+  
+  // Validate form function
+  const validateForm = (options?: { showErrors?: boolean, forceUpdate?: boolean }) => {
+    const showErrors = options?.showErrors ?? true;
+    const forceUpdate = options?.forceUpdate ?? false;
+    
+    // Skip validation if no validator or if we've validated recently (unless forced)
+    const now = Date.now();
+    if (!validatorRef.current || (!forceUpdate && now - lastValidatedAt < 500)) {
+      return validationErrors.length === 0;
+    }
+    
+    // Perform validation
+    const errors = validatorRef.current.validateForm(description, amount, splits);
+    
+    // Update state if errors changed or if forced
+    if (forceUpdate || JSON.stringify(errors) !== JSON.stringify(validationErrors)) {
+      setValidationErrors(errors);
+      setLastValidatedAt(now);
+      
+      if (showErrors && errors.length > 0) {
+        setShowValidation(true);
+      } 
+    }
+    
+    return errors.length === 0;
+  };
 
   const handleResetForm = () => {
     setDescription("");
     setAmount("");
     setSplits([]);
     setAiPrompt("");
+    setValidationErrors([]);
+    setShowValidation(false);
   };
   
   /**
@@ -174,9 +220,27 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
       initialData.reasoning = result.reasoning;
     }
     
-    toast.success("Đã cập nhật kết quả AI", {
-      description: "Giao dịch đã được cập nhật với kết quả mới từ AI"
-    });
+    // Validate the AI-generated transaction after a short delay
+    // to allow state updates to complete
+    setTimeout(() => {
+      const isValid = validateForm({ showErrors: true, forceUpdate: true });
+      
+      if (isValid) {
+        toast.success("Đã cập nhật kết quả AI", {
+          description: "Giao dịch đã được cập nhật với kết quả mới từ AI"
+        });
+      } else {
+        toast.warning("Kết quả AI có thể cần điều chỉnh", {
+          description: "Vui lòng kiểm tra các lỗi được hiển thị"
+        });
+        
+        // Scroll to the top where errors are displayed
+        const contentElement = document.querySelector('.transaction-form-content');
+        if (contentElement) {
+          contentElement.scrollTop = 0;
+        }
+      }
+    }, 300);
   };
 
   // Handler for the AI rerun button
@@ -293,6 +357,11 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
         }));
         setSplits(initialSplits);
       }
+      
+      // Validate the form after a short delay to allow state updates to complete
+      setTimeout(() => {
+        validateForm({ showErrors: false });
+      }, 500);
     }
   }, [isOpen, initialData, localFund.members]);
   
@@ -302,6 +371,10 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
       console.log("Effect: Sheet is closing, resetting form");
       // Reset form when closing
       handleResetForm();
+      // Reset validation state
+      setValidationErrors([]);
+      setShowValidation(false);
+      setLastValidatedAt(0);
       // Reset the flag
       setIsClosing(false);
     }
@@ -336,6 +409,11 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
         }));
         setSplits(resetSplits);
       }
+      
+      // Validate after a short delay to avoid excessive validation during typing
+      setTimeout(() => {
+        validateForm({ showErrors: false });
+      }, 500);
     }
   };
   
@@ -405,6 +483,11 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
     });
     
     setSplits(newSplits);
+    
+    // Validate after distributing
+    setTimeout(() => {
+      validateForm({ showErrors: false });
+    }, 300);
   };
 
   const handleUpdateSplit = (userId: string, value: number) => {
@@ -416,6 +499,11 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
           : split
       )
     );
+    
+    // Validate after a short delay to avoid excessive validation during quick changes
+    setTimeout(() => {
+      validateForm({ showErrors: false });
+    }, 500);
   };
 
   const startEditingSplit = (userId: string) => {
@@ -434,6 +522,11 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
         const isNegative = currentSplit.amount < 0;
         const newValue = parseInt(editingSplitValue) || 0;
         handleUpdateSplit(editingSplitUserId, isNegative ? -newValue : newValue);
+        
+        // Validate after saving the split
+        setTimeout(() => {
+          validateForm({ showErrors: false });
+        }, 300);
       }
     }
     cancelEditingSplit();
@@ -474,9 +567,20 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!currentUser || !amount || parseInt(amount) <= 0) {
-      toast.error("Vui lòng nhập số tiền hợp lệ");
+    // Force validation with errors shown
+    const isValid = validateForm({ showErrors: true, forceUpdate: true });
+    
+    if (!isValid) {
+      // Scroll to the top where errors are displayed
+      const contentElement = document.querySelector('.transaction-form-content');
+      if (contentElement) {
+        contentElement.scrollTop = 0;
+      }
       return;
+    }
+    
+    if (!currentUser || !amount) {
+      return; // This should be caught by validation
     }
     
     const totalAmount = parseInt(amount);
@@ -489,8 +593,6 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
       return; // Return to let the user review the distribution before submitting
     }
     
-    // Validate that the positive amounts match the transaction amount
-
     createTransaction({
       fundId: fund.id,
       description: description || "Giao dịch mới",
@@ -572,7 +674,15 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
           </SheetHeader>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col h-full">
-          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8" style={{ maxHeight: 'calc(100vh - 180px)', paddingBottom: '120px' }}>
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8 transaction-form-content" style={{ maxHeight: 'calc(100vh - 180px)', paddingBottom: '120px' }}>
+            {/* Validation errors display */}
+            {showValidation && validationErrors.length > 0 && (
+              <ValidationWarning 
+                errors={validationErrors} 
+                onDismiss={() => setShowValidation(false)}
+                className="sticky top-0 z-20"
+              />
+            )}
           <div className="space-y-2">
             <div className="flex justify-between items-center sticky top-0 z-10 bg-background pb-1">
               <Label htmlFor="description">Mô tả</Label>
@@ -591,7 +701,13 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
                 id="description"
                 placeholder="Nhập mô tả giao dịch"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  // Validate after a short delay to avoid excessive validation during typing
+                  setTimeout(() => {
+                    validateForm({ showErrors: false });
+                  }, 500);
+                }}
                 ref={descriptionInputRef}
               />
               
@@ -960,6 +1076,23 @@ export function CreateTransactionSheet({ fund, children, initialData, openSheet,
 
           </div>
           <div className="px-6 py-5 border-t mt-auto sticky bottom-0 bg-background z-10 shadow-md">
+            <div className="flex justify-between gap-4 mb-3">
+              <Button 
+                type="button" 
+                variant="secondary" 
+                onClick={() => {
+                  validateForm({ showErrors: true, forceUpdate: true });
+                  // Scroll to the top where errors are displayed
+                  const contentElement = document.querySelector('.transaction-form-content');
+                  if (contentElement) {
+                    contentElement.scrollTop = 0;
+                  }
+                }} 
+                className="flex-1 h-10"
+              >
+                Kiểm tra lỗi
+              </Button>
+            </div>
             <div className="flex justify-between gap-4">
               <Button type="button" variant="outline" onClick={() => handleSheetOpenChange(false)} className="flex-1 h-12">
                 Hủy

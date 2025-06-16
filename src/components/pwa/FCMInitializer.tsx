@@ -122,12 +122,6 @@ export function FCMInitializer({ pollingInterval = 10000 }: FCMInitializerProps)
                        notificationTime > lastNotificationTime && 
                        !processedNotificationIds.current.has(notification.id);
           
-          console.log('Checking notification:', notification.id, 
-                     'Is new:', isNew, 
-                     'Time:', notificationTime, 
-                     'Last time:', lastNotificationTime, 
-                     'Read by current user:', isReadByCurrentUser, 
-                     'Read by count:', readBy.length);
           return isNew;
         });
         
