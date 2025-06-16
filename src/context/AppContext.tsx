@@ -210,7 +210,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       const userFunds = await getUserFunds(userId);
-      setFunds(userFunds);
+      
+      // Prevent duplicates by using a Map with fund IDs as keys
+      const uniqueFundsMap = new Map();
+      
+      // First add existing funds to the map (if we want to keep them)
+      funds.forEach(fund => uniqueFundsMap.set(fund.id, fund));
+      
+      // Then add/update with the newly fetched funds
+      userFunds.forEach(fund => uniqueFundsMap.set(fund.id, fund));
+      
+      // Convert map back to array
+      const uniqueFunds = Array.from(uniqueFundsMap.values());
+      
+      // Update state with deduplicated funds
+      setFunds(uniqueFunds);
+      
+      console.log(`Loaded ${userFunds.length} funds, deduplicated to ${uniqueFunds.length}`);
     } catch (error) {
       console.error('Error loading funds:', error);
       toast.error('Không thể tải danh sách quỹ');

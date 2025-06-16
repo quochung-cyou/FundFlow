@@ -38,9 +38,23 @@ export function AppSidebar() {
     }
   };
 
-  const filteredFunds = funds.filter(fund => 
+  // Ensure funds are unique by ID before filtering
+  const uniqueFundIds = new Set();
+  const uniqueFunds = funds.filter(fund => {
+    if (uniqueFundIds.has(fund.id)) {
+      return false; // Skip duplicate funds
+    }
+    uniqueFundIds.add(fund.id);
+    return true;
+  });
+  
+  // Then apply the search filter
+  const filteredFunds = uniqueFunds.filter(fund => 
     fund.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  // Log for debugging
+  console.log(`Original funds: ${funds.length}, Unique funds: ${uniqueFunds.length}, Filtered: ${filteredFunds.length}`);
 
   if (!currentUser) return null;
 
