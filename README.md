@@ -3,6 +3,8 @@
 A modern, real-time fund management application for sharing and tracking expenses between friends, families, and groups. Using A.I for fast expense parsing and Vietnamese language processing.
 
 Note: This system NOT integrate with any payment gateway. This create a flexible system for users to manage their funds. You can payback each other with any payment method you want and verify by trust
+![alt text](image-7.png)
+![alt text](image-8.png)
 
 ![alt text](image-1.png)
 ![alt text](image-2.png)
