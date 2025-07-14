@@ -2,10 +2,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useApp } from "@/context/AppContext";
 import { Transaction } from "@/types";
 import { format } from "date-fns";
-import { ArrowUp, ArrowDown, User, Trash2, ChevronDown, ChevronUp, Calendar } from "lucide-react";
+import { ArrowUp, ArrowDown, User, Trash2, ChevronDown, ChevronUp, Calendar, AlertTriangle, Copy, Check, Hash } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -31,6 +31,9 @@ export function TransactionRow({ transaction }: TransactionRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [splitSumError, setSplitSumError] = useState<number | null>(null);
+  const [showTransactionId, setShowTransactionId] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -39,9 +42,32 @@ export function TransactionRow({ transaction }: TransactionRowProps) {
     }).format(amount);
   };
   
+  // Calculate the sum of all split amounts
+  const calculateSplitSum = () => {
+    const sum = transaction.splits.reduce((acc, split) => acc + split.amount, 0);
+    // Use a small epsilon value to handle floating point precision issues
+    return Math.abs(sum) < 0.01 ? 0 : sum;
+  };
+  
+  // Check if split amounts sum to zero on component mount
+  useEffect(() => {
+    const sum = calculateSplitSum();
+    if (sum !== 0) {
+      setSplitSumError(sum);
+    } else {
+      setSplitSumError(null);
+    }
+  }, [transaction.splits]);
+  
   const handleDelete = async () => {
     await deleteTransaction(transaction.id);
     setIsDeleteDialogOpen(false);
+  };
+  
+  const copyTransactionId = () => {
+    navigator.clipboard.writeText(transaction.id);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
   };
 
   // Determine if description is long enough to truncate
@@ -61,6 +87,46 @@ export function TransactionRow({ transaction }: TransactionRowProps) {
       transition={{ duration: 0.2 }}
       layout
     >
+      {/* Split sum error warning */}
+      {splitSumError !== null && (
+        <div className="mb-2 p-2 bg-amber-50 border border-amber-300 rounded-md flex items-center gap-2 text-amber-700">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <div className="text-xs">
+            <span className="font-medium">Cảnh báo:</span> Tổng số tiền chia không bằng 0 
+            (<span className="font-semibold">{formatCurrency(splitSumError)}</span>)
+          </div>
+        </div>
+      )}
+      
+      {/* Transaction ID display (conditionally shown) */}
+      <AnimatePresence>
+        {showTransactionId && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="mb-2 p-2 bg-secondary/50 border border-border rounded-md flex items-center justify-between text-xs"
+          >
+            <div className="flex items-center gap-1.5">
+              <Hash className="h-3 w-3 text-muted-foreground" />
+              <span className="font-mono text-muted-foreground">{transaction.id}</span>
+            </div>
+            <button
+              onClick={copyTransactionId}
+              className="p-1 hover:bg-secondary rounded-md transition-colors"
+              title="Copy transaction ID"
+            >
+              {isCopied ? (
+                <Check className="h-3 w-3 text-green-500" />
+              ) : (
+                <Copy className="h-3 w-3 text-muted-foreground" />
+              )}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
       {/* Main transaction row content */}
       <div className="flex justify-between items-start gap-4">
         {/* Left side: Avatar and transaction info */}
@@ -137,8 +203,29 @@ export function TransactionRow({ transaction }: TransactionRowProps) {
 
         {/* Right side: Time, split indicators, and delete button */}
         <div className="flex flex-col items-end gap-2 flex-shrink-0">
-          {/* Delete button - positioned at top right with better styling */}
-          <div className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
+          {/* Transaction ID and Delete buttons */}
+          <div className="flex gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">            
+            {/* Transaction ID button */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-7 w-7 rounded-full bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground border border-border hover:border-border/80 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center"
+                    aria-label="Show transaction ID"
+                    onClick={() => setShowTransactionId(!showTransactionId)}
+                  >
+                    <Hash className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  <p className="text-xs">{showTransactionId ? 'Hide' : 'Show'} transaction ID</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            {/* Delete button */}
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
               <AlertDialogTrigger asChild>
                 <Button 

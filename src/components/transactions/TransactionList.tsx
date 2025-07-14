@@ -6,11 +6,15 @@ import { Fund, Transaction } from "@/types";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { TransactionRow } from "./TransactionRow";
-import { ChevronDown, Clock, Search, AlertCircle } from "lucide-react";
+import { ChevronDown, Clock, Search, AlertCircle, AlertTriangle } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface DateRange {
   from: Date | undefined;
@@ -23,11 +27,25 @@ interface TransactionListProps {
   dateRange?: DateRange;
 }
 
+// Utility function to check if a transaction is valid (split sum equals zero)
+const isTransactionValid = (transaction: Transaction): boolean => {
+  const sum = transaction.splits.reduce((acc, split) => acc + split.amount, 0);
+  // Use a small epsilon value to handle floating point precision issues
+  return Math.abs(sum) < 0.01;
+};
+
 export function TransactionList({ fund, searchQuery = "", dateRange }: TransactionListProps) {
   const { transactions, getUserById } = useApp();
   const [isExpanded, setIsExpanded] = useState(true);
   const [localSearchTerm, setLocalSearchTerm] = useState("");
+  const [showInvalidOnly, setShowInvalidOnly] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  
+  // Count invalid transactions
+  const invalidTransactionsCount = transactions
+    .filter(transaction => transaction.fundId === fund.id)
+    .filter(transaction => !isTransactionValid(transaction))
+    .length;
   
   useEffect(() => {
     // Use the external search query if provided
@@ -39,6 +57,13 @@ export function TransactionList({ fund, searchQuery = "", dateRange }: Transacti
   // Filter and sort transactions
   const filteredTransactions = transactions
     .filter(transaction => transaction.fundId === fund.id)
+    // Filter by invalid transactions if the toggle is on
+    .filter(transaction => {
+      if (showInvalidOnly) {
+        return !isTransactionValid(transaction);
+      }
+      return true;
+    })
     .filter(transaction => {
       const searchLowerCase = localSearchTerm.toLowerCase();
       
@@ -110,6 +135,21 @@ export function TransactionList({ fund, searchQuery = "", dateRange }: Transacti
           <CardTitle className="text-lg flex items-center gap-2">
             <Clock className="h-4 w-4 text-blue-500" />
             <span>Lịch sử giao dịch</span>
+            {invalidTransactionsCount > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 ml-1">
+                      <AlertTriangle className="h-3 w-3 mr-1 text-amber-500" />
+                      {invalidTransactionsCount}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">{invalidTransactionsCount} giao dịch không hợp lệ</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <motion.div
               animate={{ rotate: isExpanded ? 180 : 0 }}
               transition={{ duration: 0.2 }}
@@ -120,18 +160,34 @@ export function TransactionList({ fund, searchQuery = "", dateRange }: Transacti
             </motion.div>
           </CardTitle>
           
-          {/* Only show the local search if not using the external search */}
-          {!searchQuery && (
-            <div className="relative w-full sm:w-auto">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Tìm giao dịch..." 
-                className="pl-8 h-8 text-sm w-full"
-                value={localSearchTerm}
-                onChange={(e) => setLocalSearchTerm(e.target.value)}
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+            {/* Invalid transactions filter toggle */}
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="invalid-filter"
+                checked={showInvalidOnly}
+                onCheckedChange={setShowInvalidOnly}
+                className="data-[state=checked]:bg-amber-500"
               />
+              <Label htmlFor="invalid-filter" className="text-xs cursor-pointer flex items-center">
+                <AlertTriangle className="h-3 w-3 mr-1 text-amber-500" />
+                Chỉ hiện giao dịch lỗi
+              </Label>
             </div>
-          )}
+            
+            {/* Only show the local search if not using the external search */}
+            {!searchQuery && (
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Tìm giao dịch..." 
+                  className="pl-8 h-8 text-sm w-full"
+                  value={localSearchTerm}
+                  onChange={(e) => setLocalSearchTerm(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </CardHeader>
       
