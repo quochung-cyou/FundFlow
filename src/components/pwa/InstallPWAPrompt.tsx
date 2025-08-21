@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -80,13 +81,23 @@ export function InstallPWAPrompt() {
   if (!isVisible) return null;
 
   return (
-    <Card className="w-full max-w-md mx-auto shadow-lg border-primary/10 animate-in fade-in-50 duration-300">
+    <>
+      {/* Overlay with blur effect */}
+      <div 
+        className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
+        onClick={handleDismiss}
+        aria-hidden="true"
+      />
+      
+      {/* Prompt card positioned at the top */}
+      <div className="fixed inset-x-0 top-0 z-50 p-4 flex justify-center items-start">
+        <Card className="w-full max-w-md shadow-lg border-primary/10 animate-in fade-in-50 slide-in-from-top-5 duration-300">
       <CardHeader className="space-y-1">
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl font-semibold">
             Cài đặt Ứng dụng Fund Flow
           </CardTitle>
-          <Button variant="ghost" size="icon" onClick={handleDismiss} className="h-8 w-8">
+          <Button variant="ghost" size="icon" onClick={handleDismiss} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -124,6 +135,19 @@ export function InstallPWAPrompt() {
           </Button>
         )}
       </CardFooter>
-    </Card>
+        </Card>
+      </div>
+      
+      {/* Easy close button at bottom of screen on mobile */}
+      <div className="fixed bottom-6 left-0 right-0 z-50 flex justify-center md:hidden">
+        <Button 
+          onClick={handleDismiss}
+          variant="secondary" 
+          className="rounded-full shadow-lg px-6 py-6 h-auto font-medium bg-background/80 backdrop-blur-sm border border-input"
+        >
+          Đóng
+        </Button>
+      </div>
+    </>
   );
 }

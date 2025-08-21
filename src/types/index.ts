@@ -56,6 +56,9 @@ export interface Transaction {
   category?: string; // Optional category
   notes?: string; // Optional notes
   attachments?: string[]; // Optional array of attachment URLs
+  currencyCode?: string; // ISO 4217 currency code (e.g., USD, EUR)
+  originalAmount?: number; // Original amount in foreign currency
+  exchangeRate?: number; // Exchange rate used for conversion
 }
 
 export interface Split {
@@ -77,4 +80,16 @@ export interface DateRange {
 export interface FirestoreDocument<T> {
   id: string;
   data: T;
+}
+
+// Split type enum for transaction splits
+export enum SplitType {
+  EVEN = "even",
+  CUSTOM = "custom",
+  PERCENTAGE = "percentage"
+}
+
+// User with profile information
+export interface UserWithProfile extends User {
+  isActive?: boolean;
 }

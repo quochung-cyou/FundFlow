@@ -1,4 +1,9 @@
 import { Transaction, Split } from "@/types";
+import { formatNumberWithSeparators } from "@/lib/utils";
+import { numberToVietnameseText as numberToVNText } from "@/lib/utils";
+
+// Re-export the function to fix import issues
+export const numberToVietnameseText = numberToVNText;
 
 /**
  * Calculates the total amount for a transaction based on its splits.
@@ -79,4 +84,100 @@ export const calculateDailyExpenses = (
   });
   
   return dailyExpenseMap;
+};
+
+/**
+ * Format amount for display with thousand separators
+ */
+export const formatAmountForDisplay = (value: string): string => {
+  if (!value) return '';
+  
+  const isNegative = value.startsWith('-');
+  const numericValue = parseInt(value);
+  if (isNaN(numericValue)) return '';
+  
+  return formatNumberWithSeparators(numericValue);
+};
+
+/**
+ * Format amount as Vietnamese currency
+ */
+export const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0
+  }).format(amount);
+};
+
+/**
+ * Format number with Vietnamese locale
+ */
+export const formatNumber = (amount: number): string => {
+  return new Intl.NumberFormat("vi-VN", {
+    maximumFractionDigits: 0
+  }).format(amount);
+};
+
+/**
+ * Sanitize amount input to allow only digits and negative sign
+ */
+export const sanitizeAmountInput = (value: string): string => {
+  // Allow negative sign at the beginning and digits
+  value = value.replace(/[^-\d]/g, '');
+  
+  // Only allow one negative sign at the beginning
+  if (value.startsWith('-')) {
+    const digits = value.substring(1).replace(/-/g, '');
+    value = '-' + digits;
+  } else {
+    value = value.replace(/-/g, '');
+  }
+  
+  return value;
+};
+
+/**
+ * Calculate even distribution of amount among members
+ */
+export const calculateEvenDistribution = (
+  totalAmount: number, 
+  memberIds: string[], 
+  payerId: string
+): { userId: string; amount: number }[] => {
+  const numMembers = memberIds.length;
+  
+  if (!totalAmount || numMembers <= 1) return [];
+  
+  const sharePerMember = Math.floor(totalAmount / numMembers);
+  const remainder = totalAmount - (sharePerMember * numMembers);
+  
+  return memberIds.map((memberId, index) => {
+    // Everyone has a negative share representing what they owe
+    const share = -(sharePerMember + (index === 0 ? remainder : 0));
+    
+    if (memberId === payerId) {
+      // For the payer: they paid the total amount but also owe their share
+      return {
+        userId: memberId,
+        amount: totalAmount + share
+      };
+    } else {
+      // For everyone else: they just owe their share
+      return {
+        userId: memberId,
+        amount: share
+      };
+    }
+  });
+};
+
+/**
+ * Add zeros to the end of amount string
+ */
+export const addZerosToAmount = (currentAmount: string, zeroCount: number): string => {
+  if (!currentAmount) {
+    return '0'.repeat(zeroCount);
+  }
+  return currentAmount + '0'.repeat(zeroCount);
 };
