@@ -12,11 +12,6 @@ interface ValidationWarningProps {
 
 export function ValidationWarning({ errors, onDismiss, className }: ValidationWarningProps) {
   const [visible, setVisible] = useState(true);
-  console.log("ValidationWarning - errors:", errors);
-  console.log("ValidationWarning - visible:", visible);
-  
-  console.log("ValidationWarning - onDismiss:", onDismiss);
-  console.log("ValidationWarning - className:", className);
   
   
   // Reset visibility when errors change

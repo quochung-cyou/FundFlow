@@ -29,13 +29,6 @@ export function SplitSection({
   currency,
   convertedAmount
 }: SplitSectionProps) {
-  // Debug log for currency and amount
-  console.log("SplitSection received:", { 
-    currency, 
-    convertedAmount, 
-    amount,
-    currencyCode: currency?.code
-  });
   // Check if amount is valid
   const isAmountValid = !!amount && parseInt(amount) > 0;
   const [isParticipantPopupOpen, setIsParticipantPopupOpen] = useState(false);

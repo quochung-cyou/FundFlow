@@ -138,21 +138,8 @@ export class TransactionFormValidator {
       });
     }
     
-    // Check if any user has an invalid split
-    for (const split of splits) {
-      // Verify user exists
-      const userExists = this.members.some(m => m.id === split.userId);
-      if (!userExists) {
-        errors.push({
-          field: 'splits',
-          message: `Người dùng không tồn tại trong quỹ`,
-          severity: 'error'
-        });
-      }
-    }
-    
 
-    
+
     return errors;
   }
   
