@@ -38,8 +38,12 @@ export const createTransaction = async (
       description: transaction.description || 'Giao dịch',
     };
     
+    //Remove undefined field
+    const filteredData = Object.fromEntries(
+      Object.entries(transactionData).filter(([_, v]) => v !== undefined)
+    );
     // Add to Firestore
-    const docRef = await addDoc(transactionsRef, transactionData);
+    const docRef = await addDoc(transactionsRef, filteredData);
     
     // Create the transaction object with ID
     const newTransaction = {
