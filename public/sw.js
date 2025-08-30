@@ -6,8 +6,8 @@ importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
 
 // Cache name for app shell and dynamic content
-const CACHE_NAME = 'fund-flow-cache-v1-30082025';
-const DYNAMIC_CACHE = 'fund-flow-dynamic-cache-v1-30082025';
+const CACHE_NAME = 'fund-flow-cache-v1-30082025-02';
+const DYNAMIC_CACHE = 'fund-flow-dynamic-cache-v1-30082025-02';
 
 // Resources to cache immediately (app shell)
 const APP_SHELL = [
