@@ -40,7 +40,6 @@ export const createNotification = async (
         createdAt: Date.now(),
         updatedAt: Date.now()
       });
-      console.log(`Created fund notifications document for fund ${fundId}`);
     }
     
     // Generate a unique ID for the notification
@@ -69,7 +68,6 @@ export const createNotification = async (
       readBy: []
     });
     
-    console.log(`Notification created in fund ${fundId} for ${recipients.length} recipients`);
     return notificationId;
   } catch (error) {
     console.error('Error creating notification:', error);
@@ -90,12 +88,10 @@ export const getUserNotifications = async (userId: string): Promise<any[]> => {
     const fundsSnapshot = await getDocs(fundsQuery);
     
     if (fundsSnapshot.empty) {
-      console.log(`User ${userId} is not a member of any funds`);
       return [];
     }
     
     const fundIds = fundsSnapshot.docs.map(doc => doc.id);
-    console.log(`User ${userId} is a member of ${fundIds.length} funds:`, fundIds);
     
     // Get notifications from each fund
     const allNotifications: any[] = [];
@@ -131,7 +127,6 @@ export const getUserNotifications = async (userId: string): Promise<any[]> => {
     // Sort all notifications by creation time (newest first)
     allNotifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     
-    console.log(`Found ${allNotifications.length} total notifications for user ${userId}`);
     return allNotifications;
   } catch (error) {
     console.error('Error getting user notifications:', error);
@@ -174,7 +169,7 @@ export const markNotificationAsRead = async (
       lastReadAt: Date.now()
     });
     
-    console.log(`Notification ${notificationId} in fund ${fundId} marked as read by user ${userId}`);
+
   } catch (error) {
     console.error('Error marking notification as read:', error);
   }
@@ -218,7 +213,6 @@ export const sendTransactionNotification = async (
     const filteredRecipients = recipientIds.filter(id => id !== creatorId);
     
     if (filteredRecipients.length === 0) {
-      console.log('No recipients to notify');
       return;
     }
     
@@ -241,15 +235,14 @@ export const sendTransactionNotification = async (
       timestamp: Date.now().toString(),
     };
     
-    console.log(`Creating notification for fund ${fundId} with ${filteredRecipients.length} recipients`);
+
     
     try {
       // First, check if the fund document exists in the fund_notifications collection
       const fundNotificationsRef = doc(db, FUND_NOTIFICATIONS_COLLECTION, fundId);
-      console.log(`Now getting fund notifications document for fund ${fundId}`);
       const fundNotificationsDoc = await getDoc(fundNotificationsRef);
       
-      console.log(`Fund notifications document for fund ${fundId}:`, fundNotificationsDoc.data());
+
       // If the fund document doesn't exist, create it
       if (!fundNotificationsDoc.exists()) {
         await setDoc(fundNotificationsRef, {
@@ -257,14 +250,12 @@ export const sendTransactionNotification = async (
           createdAt: Date.now(),
           updatedAt: Date.now()
         });
-        console.log(`Created fund notifications document for fund ${fundId}`);
       }
       
       // Create a unique notification ID
       const timestamp = Date.now();
       const notificationId = `tx_${transactionId}_${timestamp}`;
       
-      console.log(`Creating reference`);
       // Reference to the notification document in the fund's subcollection
       const notificationRef = doc(
         db, 
@@ -274,7 +265,7 @@ export const sendTransactionNotification = async (
         notificationId
       );
       
-      console.log(`Creating notification for fund ${fundId} with ID ${notificationId}`);
+     
       // Create the notification in the fund's subcollection
       await setDoc(notificationRef, {
         id: notificationId,
@@ -290,7 +281,7 @@ export const sendTransactionNotification = async (
         readBy: [] // Array of user IDs who have read this notification
       });
       
-      console.log(`Notification created for fund ${fundId} with ID ${notificationId}`);
+     
     } catch (error) {
       console.error(`Error creating notification for fund ${fundId}:`, error);
     }
@@ -335,12 +326,10 @@ export const subscribeToUserNotifications = (userId: string, callback: (notifica
   
   // Check if we already have an active listener for this user
   if (activeListeners.has(`notifications_${userId}`)) {
-    console.log('Reusing existing notification listener for user', userId);
     return () => {}; // Return a no-op unsubscribe function
   }
 
   try {
-    console.log('Setting up real-time notification listener for user', userId);
     const notificationsRef = collection(db, NOTIFICATIONS_COLLECTION);
     const q = query(
       notificationsRef,
@@ -358,7 +347,7 @@ export const subscribeToUserNotifications = (userId: string, callback: (notifica
           : new Date(doc.data().createdAt)
       })) as Notification[];
       
-      console.log(`Received ${notifications.length} notifications in real-time for user ${userId}`);
+  
       callback(notifications);
     }, (error) => {
       console.error('Error in notification listener:', error);
@@ -368,7 +357,6 @@ export const subscribeToUserNotifications = (userId: string, callback: (notifica
     activeListeners.set(`notifications_${userId}`, unsubscribe);
     
     return () => {
-      console.log('Unsubscribing from notifications for user', userId);
       unsubscribe();
       activeListeners.delete(`notifications_${userId}`);
     };
@@ -382,10 +370,9 @@ export const subscribeToUserNotifications = (userId: string, callback: (notifica
  * Unsubscribe from all active notification listeners
  */
 export const unsubscribeFromAllNotifications = () => {
-  console.log(`Unsubscribing from ${activeListeners.size} notification listeners`);
+
   activeListeners.forEach((unsubscribe, key) => {
     unsubscribe();
-    console.log('Unsubscribed from', key);
   });
   activeListeners.clear();
 };

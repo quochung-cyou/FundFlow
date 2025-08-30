@@ -4,6 +4,12 @@ export interface User {
   displayName: string;
   email: string;
   photoURL: string;
+  bankAccount?: {
+    accountNumber: string;
+    bankCode: string;
+    bankName: string;
+    accountName?: string;
+  };
 }
 
 export interface Fund {

@@ -17,21 +17,28 @@ import { formatNumberWithSeparators, numberToVietnameseText } from "@/lib/utils"
 import { toast } from "sonner";
 import { ArrowDownIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { QRCodeDisplay } from "@/components/profile/QRCodeDisplay";
+import { BankDeepLinkButton } from "@/components/profile/BankDeepLinkButton";
 
 interface ReturnMoneyButtonProps {
   fund: Fund;
-  children?: React.ReactNode;
   trigger?: React.ReactNode;
   fundBalanceData?: { userId: string; amount: number }[];
 }
 
-export function ReturnMoneyButton({ fund, trigger, fundBalanceData }: ReturnMoneyButtonProps) {
+export function ReturnMoneyButton({ fund, trigger, fundBalanceData }: Readonly<ReturnMoneyButtonProps>) {
   const { createTransaction, currentUser, getUserById, calculateBalances } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [amount, setAmount] = useState("");
   const [balances, setBalances] = useState<{ userId: string; amount: number }[]>([]);
   const [currentUserBalance, setCurrentUserBalance] = useState<number>(0);
+  const [showQRCode, setShowQRCode] = useState(false);
+
+  // Convert member IDs to user objects (synchronously now that users are preloaded)
+  const memberUsers = fund.members
+    .map((memberId) => getUserById(memberId))
+    .filter((user): user is User => user && user.id !== currentUser?.id && user.displayName !== `User ${user.id.substring(0, 4)}`);
 
   // Get balances for the current fund
   useEffect(() => {
@@ -44,11 +51,6 @@ export function ReturnMoneyButton({ fund, trigger, fundBalanceData }: ReturnMone
       setCurrentUserBalance(userBalance?.amount || 0);
     }
   }, [fund.id, currentUser, calculateBalances, fundBalanceData]);
-
-  // Convert member IDs to user objects
-  const memberUsers = fund.members
-    .map((memberId) => getUserById(memberId))
-    .filter((user): user is User => user !== undefined && user.id !== currentUser?.id);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
@@ -117,6 +119,7 @@ export function ReturnMoneyButton({ fund, trigger, fundBalanceData }: ReturnMone
       setSelectedUser(null);
       setAmount("");
     } catch (error) {
+      console.error("Error creating transaction:", error);
       toast.error("Không thể tạo giao dịch");
     }
   };
@@ -125,7 +128,7 @@ export function ReturnMoneyButton({ fund, trigger, fundBalanceData }: ReturnMone
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         {trigger || (
-          <Button variant="outline" size="sm">
+          <Button className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white">
             Trả tiền
           </Button>
         )}
@@ -200,6 +203,11 @@ export function ReturnMoneyButton({ fund, trigger, fundBalanceData }: ReturnMone
                         {formatNumberWithSeparators(Math.abs(balanceAmount))} {balanceAmount >= 0 ? '+' : '-'}
                       </span>
                     </div>
+                    {user.bankAccount && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-[8px] text-white">₫</span>
+                      </div>
+                    )}
                   </Button>
                 );
               })}
@@ -348,7 +356,7 @@ export function ReturnMoneyButton({ fund, trigger, fundBalanceData }: ReturnMone
 
           {/* Transaction summary */}
           {selectedUser && amount && parseInt(amount) > 0 && (
-            <div className="bg-muted/50 p-4 rounded-lg space-y-2 border">
+            <div className="bg-muted/50 p-4 rounded-lg space-y-3 border">
               <h3 className="font-medium">Tóm tắt giao dịch:</h3>
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
@@ -370,6 +378,53 @@ export function ReturnMoneyButton({ fund, trigger, fundBalanceData }: ReturnMone
                 </div>
                 <span className="text-emerald-500 font-medium">+{formatNumberWithSeparators(amount)}</span>
               </div>
+
+              {/* Bank Account Information Display */}
+              {selectedUser.bankAccount && (
+                <div className="pt-3 border-t space-y-3">
+                  <h4 className="font-medium text-sm">Thông tin chuyển khoản:</h4>
+                  <div className="bg-white p-3 rounded-lg border space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Ngân hàng:</span>
+                      <span className="text-sm">{selectedUser.bankAccount.bankName}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Số TK:</span>
+                      <span className="text-sm font-mono">{selectedUser.bankAccount.accountNumber}</span>
+                    </div>
+                    {selectedUser.bankAccount.accountName && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Tên TK:</span>
+                        <span className="text-sm">{selectedUser.bankAccount.accountName}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* QR Code button if user has bank account */}
+              {selectedUser.bankAccount && (
+                <div className="pt-2">
+                  <Button 
+                    variant="outline" 
+                    className="w-full flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    onClick={() => setShowQRCode(true)}
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <rect x="7" y="7" width="3" height="3"/>
+                      <rect x="14" y="7" width="3" height="3"/>
+                      <rect x="7" y="14" width="3" height="3"/>
+                      <path d="m14 14 3 3"/>
+                      <path d="m14 17 3-3"/>
+                    </svg>
+                    Xem mã QR chuyển tiền
+                  </Button>
+
+                  {/* Bank Deep Link Button */}
+                  <BankDeepLinkButton />
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -389,6 +444,17 @@ export function ReturnMoneyButton({ fund, trigger, fundBalanceData }: ReturnMone
           </div>
         </div>
       </SheetContent>
+
+      {/* QR Code Dialog */}
+      {selectedUser?.bankAccount && (
+        <QRCodeDisplay
+          user={selectedUser}
+          amount={parseInt(amount) || undefined}
+          description={`Trả tiền cho ${selectedUser.displayName}`}
+          isOpen={showQRCode}
+          onClose={() => setShowQRCode(false)}
+        />
+      )}
     </Sheet>
   );
 }

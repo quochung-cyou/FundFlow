@@ -1,6 +1,5 @@
 import { createContext, useState, useContext, ReactNode, useEffect } from "react";
 import { Fund, Transaction, User } from "@/types";
-import { mockUsers } from "@/data/mockData";
 import { toast } from "sonner";
 import { 
   loginWithGoogle, 
@@ -13,22 +12,16 @@ import {
   getUserFunds,
   getFundById,
   updateFund as updateFirebaseFund,
-  deleteFund as deleteFundService,
-  addFundMember,
-  removeFundMember
+  deleteFund as deleteFundService
 } from "@/firebase/fundService";
 import {
   createTransaction as createFirebaseTransaction,
   getFundTransactions,
-  getTransactionById,
-  updateTransaction,
   deleteTransaction
 } from "@/firebase/transactionService";
 import {
   findUserByEmail as findUserByEmailFirestore,
-  getUserById as getFirestoreUserById,
-  saveUser,
-  getCurrentFirestoreUser,
+  getUsersByIds as getFirestoreUsersByIds,
   syncUserWithFirestore,
   addUserToFundByEmail
 } from "@/firebase/userService";
@@ -46,10 +39,13 @@ interface AppContextType {
   updateFund: (fundId: string, fundData: Partial<Omit<Fund, "id" | "createdAt" | "createdBy">>) => Promise<boolean>;
   createTransaction: (transaction: Omit<Transaction, "id" | "createdAt">) => Promise<Transaction | undefined>;
   deleteTransaction: (transactionId: string) => Promise<boolean>;
-  getUserById: (id: string) => User | undefined;
+  getUserById: (id: string) => User;
+  loadUsers: (userIds: string[]) => Promise<void>;
+  users: Record<string, User>;
   findUserByEmail: (email: string) => Promise<User | null>;
   addMemberByEmail: (fundId: string, email: string) => Promise<boolean>;
   calculateBalances: (fundId: string) => { userId: string; amount: number }[];
+  refreshCurrentUser: () => Promise<void>;
   isAuthLoading: boolean;
   isLoading: boolean;
   loadUserFunds: (userId: string) => Promise<void>;
@@ -67,7 +63,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedFund, setSelectedFund] = useState<Fund | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [userCache, setUserCache] = useState<Record<string, User>>({});
+  const [users, setUsers] = useState<Record<string, User>>({});
 
   // Convert Firebase user to our User type
   const convertFirebaseUser = (firebaseUser: FirebaseUser): User => {
@@ -113,51 +109,97 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Get user by ID - using Firebase and local cache
-  const getUserById = (id: string) => {
+  // Load multiple users by IDs using the centralized batch function
+  const loadUsers = async (userIds: string[]) => {
+    if (!userIds || userIds.length === 0) return;
+    
+    // Filter out IDs that are already loaded, invalid, or the current user
+    const uniqueIds = [...new Set(userIds)].filter(id => 
+      id && 
+      id !== currentUser?.id && // Current user is already available
+      !users[id] // Not already loaded
+    );
+    
+    if (uniqueIds.length === 0) return;
+    
+    try {
+      setIsLoading(true);
+      console.log('AppContext: Loading users via batch:', uniqueIds);
+      
+      // Use the centralized batch function
+      const usersMap = await getFirestoreUsersByIds(uniqueIds);
+      
+      // Update users state
+      setUsers(prev => {
+        const newUsers = { ...prev };
+        usersMap.forEach((user, userId) => {
+          newUsers[userId] = user;
+        });
+        console.log('AppContext: Loaded', usersMap.size, 'users');
+        return newUsers;
+      });
+    } catch (error) {
+      console.error('AppContext: Error loading users:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Get user by ID - synchronous, uses preloaded data
+  const getUserById = (id: string): User => {
     // Handle null/undefined IDs
     if (!id) {
       return {
         id: 'unknown',
         displayName: 'Unknown User',
         email: '',
-        photoURL: ''
+        photoURL: '',
+        bankAccount: undefined
       };
     }
     
     // If the current user matches the ID, return the current user
+    // This ensures the most up-to-date data including bankAccount
     if (currentUser && currentUser.id === id) {
       return currentUser;
     }
     
-    // If we have the user in cache, return it
-    if (userCache[id]) {
-      return userCache[id];
+    // Return from loaded users or placeholder
+    if (users[id]) {
+      return users[id];
     }
     
-    // If not in cache, fetch from Firebase asynchronously and update cache
-    getFirestoreUserById(id).then(user => {
-      if (user) {
-        setUserCache(prev => ({
-          ...prev,
-          [id]: user
-        }));
-      }
-    }).catch(error => {
-      console.error('Error fetching user:', error);
-    });
-    
-    // Return a placeholder while loading
+    // Return placeholder for unloaded users
     const idStr = String(id);
     const shortId = idStr.substring(0, 4);
     return {
       id,
       displayName: `User ${shortId}`,
       email: '',
-      photoURL: ''
+      photoURL: '',
+      bankAccount: undefined
     };
   };
   
+  // Refresh current user data from Firestore (uses batch getUsersByIds)
+  const refreshCurrentUser = async () => {
+    if (!currentUser?.id) return;
+    
+    try {
+      // Use the batch function for consistency
+      const refreshedUsers = await getFirestoreUsersByIds([currentUser.id]);
+      const updatedUser = refreshedUsers.get(currentUser.id);
+      
+      if (updatedUser) {
+        setCurrentUser(updatedUser);
+        sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        console.log('Current user refreshed successfully');
+      }
+    } catch (error) {
+      console.error('Error refreshing current user:', error);
+    }
+  };
+
   // Find a user by email using Firebase
   const findUserByEmail = async (email: string) => {
     if (!email) return null;
@@ -446,15 +488,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChange(async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          // Convert the basic firebase user first for immediate display
-          const basicUser = convertFirebaseUser(firebaseUser);
-          setCurrentUser(basicUser);
-          // Cache the user to avoid login flickers on refresh
-          sessionStorage.setItem('currentUser', JSON.stringify(basicUser));
-          
-          // Then load additional data in background without blocking
+          // Get complete user data from Firestore (including bankAccount)
           const fullUser = await syncUserWithFirestore(firebaseUser);
           setCurrentUser(fullUser);
+          // Cache the complete user data
           sessionStorage.setItem('currentUser', JSON.stringify(fullUser));
           
           // Load funds in background
@@ -463,7 +500,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           });
         } catch (error) {
           console.error('Error syncing user:', error);
-          // Don't show toast here to avoid disrupting the UI
+          // Fallback to basic Firebase user data
+          const basicUser = convertFirebaseUser(firebaseUser);
+          setCurrentUser(basicUser);
+          sessionStorage.setItem('currentUser', JSON.stringify(basicUser));
         } finally {
           setIsAuthLoading(false);
         }
@@ -579,9 +619,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         createTransaction,
         deleteTransaction: deleteTransactionById,
         getUserById,
+        loadUsers,
+        users,
         findUserByEmail,
         addMemberByEmail,
         calculateBalances,
+        refreshCurrentUser,
         deleteFund,
         isAuthLoading,
         isLoading,

@@ -8,11 +8,7 @@ import {
   getDoc, 
   setDoc, 
   updateDoc, 
-  serverTimestamp, 
-  Timestamp,
-  writeBatch,
-  DocumentReference
-} from 'firebase/firestore';
+  serverTimestamp} from 'firebase/firestore';
 import { User } from '@/types';
 import { User as FirebaseUser } from 'firebase/auth';
 
@@ -101,47 +97,123 @@ export const findUserByEmail = async (email: string): Promise<User | null> => {
 };
 
 /**
+ * Batch fetch multiple users by their IDs
+ * @param userIds Array of user IDs to fetch
+ * @returns Map of userId -> User object
+ */
+export const getUsersByIds = async (userIds: string[]): Promise<Map<string, User>> => {
+  const result = new Map<string, User>();
+  const uncachedUserIds: string[] = [];
+  
+  // Check cache first
+  for (const userId of userIds) {
+    if (!userId) continue;
+    
+    const cachedData = userCache.get(userId);
+    if (cachedData && (Date.now() - cachedData.timestamp) < CACHE_EXPIRATION) {
+      result.set(userId, cachedData.user);
+    } else {
+      uncachedUserIds.push(userId);
+    }
+  }
+  
+  // If all users are cached, return early
+  if (uncachedUserIds.length === 0) {
+    return result;
+  }
+  
+  try {
+    // Fetch uncached users from Firestore in batches
+    // Firestore has a limit of 10 docs per batch, but we can do multiple queries
+    const batchSize = 10;
+    const batches: string[][] = [];
+    
+    for (let i = 0; i < uncachedUserIds.length; i += batchSize) {
+      batches.push(uncachedUserIds.slice(i, i + batchSize));
+    }
+    
+    const fetchPromises = batches.map(async (batch) => {
+      const userDocs = await Promise.all(
+        batch.map(userId => getDoc(doc(db, USERS_COLLECTION, userId)))
+      );
+      
+      return userDocs.map((userDoc, index) => ({
+        userId: batch[index],
+        doc: userDoc
+      }));
+    });
+    
+    const batchResults = await Promise.all(fetchPromises);
+    const allResults = batchResults.flat();
+    
+    // Process results
+    for (const { userId, doc: userDoc } of allResults) {
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const user: User = {
+          id: userId,
+          displayName: userData.displayName || 'Unknown User',
+          email: userData.email,
+          photoURL: userData.photoURL || '',
+          bankAccount: userData.bankAccount || undefined,
+        };
+        
+        // Update cache
+        userCache.set(userId, {
+          user,
+          timestamp: Date.now()
+        });
+        
+        result.set(userId, user);
+      }
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error batch fetching users:', error);
+    // Return whatever we have from cache
+    return result;
+  }
+};
+
+/**
  * Get a user by ID
  * @param userId User ID
  * @returns User object if found, null otherwise
  */
+/**
+ * Get a single user by ID (uses the batch getUsersByIds function internally)
+ * @param userId User ID
+ * @returns User data or null if not found
+ */
 export const getUserById = async (userId: string): Promise<User | null> => {
+  if (!userId) return null;
+  
   try {
-    if (!userId) return null;
-    
-    // Check cache first
-    const cachedData = userCache.get(userId);
-    if (cachedData && (Date.now() - cachedData.timestamp) < CACHE_EXPIRATION) {
-      return cachedData.user;
-    }
-    
-    // If not in cache or expired, fetch from Firestore
-    const userDoc = await getDoc(doc(db, USERS_COLLECTION, userId));
-    
-    if (!userDoc.exists()) {
-      return null;
-    }
-    
-    const userData = userDoc.data();
-    
-    const user = {
-      id: userDoc.id,
-      displayName: userData.displayName || 'Unknown User',
-      email: userData.email,
-      photoURL: userData.photoURL || '',
-    };
-    
-    // Update cache
-    userCache.set(userId, {
-      user,
-      timestamp: Date.now()
-    });
-    
-    return user;
+    // Use the batch function for consistency
+    const usersMap = await getUsersByIds([userId]);
+    return usersMap.get(userId) || null;
   } catch (error) {
     console.error('Error getting user by ID:', error);
     throw error;
   }
+};
+
+/**
+ * Get a single user by ID synchronously from cache only
+ * This is used when you know the user should already be loaded
+ * @param userId User ID
+ * @returns User data or null if not in cache
+ */
+export const getUserByIdFromCache = (userId: string): User | null => {
+  if (!userId) return null;
+  
+  const cachedData = userCache.get(userId);
+  if (cachedData && (Date.now() - cachedData.timestamp) < CACHE_EXPIRATION) {
+    return cachedData.user;
+  }
+  
+  return null;
 };
 
 /**
@@ -215,6 +287,10 @@ export const saveUser = async (user: User): Promise<User> => {
  * If the user doesn't exist in Firestore yet, create a record
  * @returns Current user or null if not authenticated
  */
+/**
+ * Get the current authenticated user from Firestore (uses batch getUsersByIds internally)
+ * @returns Current user data or null if not authenticated
+ */
 export const getCurrentFirestoreUser = async (): Promise<User | null> => {
   try {
     const currentUser = auth.currentUser;
@@ -223,8 +299,9 @@ export const getCurrentFirestoreUser = async (): Promise<User | null> => {
       return null;
     }
     
-    // Try to get user from Firestore
-    const user = await getUserById(currentUser.uid);
+    // Use batch function for consistency  
+    const usersMap = await getUsersByIds([currentUser.uid]);
+    const user = usersMap.get(currentUser.uid);
     
     if (user) {
       // User exists, update login timestamp
@@ -273,43 +350,62 @@ export const getCurrentFirestoreUser = async (): Promise<User | null> => {
  * @param firebaseUser Firebase Auth user
  * @returns Synced user from Firestore
  */
+/**
+ * Sync a Firebase Auth user with Firestore data (uses batch getUsersByIds internally)
+ * @param firebaseUser Firebase Auth user
+ * @returns Complete user data including bankAccount
+ */
 export const syncUserWithFirestore = async (firebaseUser: FirebaseUser): Promise<User> => {
   try {
     if (!firebaseUser) {
       throw new Error('No Firebase user provided');
     }
     
-    // Convert Firebase user to our User type
-    const userToSync: User = {
+    // First, try to get the complete user data using batch function
+    const usersMap = await getUsersByIds([firebaseUser.uid]);
+    const existingUser = usersMap.get(firebaseUser.uid);
+    
+    if (existingUser) {
+      // User exists in Firestore - update with latest Firebase Auth data if needed
+      const shouldUpdate = 
+        firebaseUser.displayName !== existingUser.displayName ||
+        firebaseUser.email !== existingUser.email ||
+        firebaseUser.photoURL !== existingUser.photoURL;
+      
+      if (shouldUpdate) {
+        const updatedUser: User = {
+          ...existingUser,
+          displayName: firebaseUser.displayName || existingUser.displayName,
+          email: firebaseUser.email || existingUser.email,
+          photoURL: firebaseUser.photoURL || existingUser.photoURL,
+        };
+        
+        await saveUser(updatedUser);
+        return updatedUser;
+      } else {
+        // Update login timestamp without affecting user data
+        try {
+          await updateDoc(doc(db, USERS_COLLECTION, firebaseUser.uid), {
+            lastLoginAt: serverTimestamp(),
+          });
+        } catch (err) {
+          console.warn('Could not update lastLoginAt timestamp:', err);
+        }
+        
+        return existingUser;
+      }
+    }
+    
+    // User doesn't exist in Firestore - create new user
+    const newUser: User = {
       id: firebaseUser.uid,
       displayName: firebaseUser.displayName || 'User',
       email: firebaseUser.email || '',
       photoURL: firebaseUser.photoURL || '',
     };
     
-    try {
-      // Save to Firestore (this will create or update as needed)
-      await saveUser(userToSync);
-      
-      // Try to update login timestamp, but don't fail if it doesn't work
-      await updateDoc(doc(db, USERS_COLLECTION, firebaseUser.uid), {
-        lastLoginAt: serverTimestamp(),
-      }).catch(err => {
-        console.warn('Could not update lastLoginAt timestamp:', err);
-        // Continue without throwing
-      });
-    } catch (permissionError) {
-      console.warn('Permission error when syncing user. Using local data instead:', permissionError);
-      // Continue without throwing, as we still want to return the user object
-    }
-    
-    // Update cache
-    userCache.set(userToSync.id, {
-      user: userToSync,
-      timestamp: Date.now()
-    });
-    
-    return userToSync;
+    await saveUser(newUser);
+    return newUser;
   } catch (error) {
     console.error('Error syncing user with Firestore:', error);
     // If we can't sync, still return a user object based on Firebase Auth
@@ -393,80 +489,6 @@ export const addUserToFundByEmail = async (fundId: string, email: string): Promi
   }
 };
 
-/**
- * Batch get multiple users by IDs
- * @param userIds Array of user IDs
- * @returns Map of user IDs to User objects
- */
-export const batchGetUsers = async (userIds: string[]): Promise<Map<string, User>> => {
-  try {
-    if (!userIds || userIds.length === 0) {
-      return new Map();
-    }
-    
-    // Deduplicate IDs
-    const uniqueIds = [...new Set(userIds)];
-    const result = new Map<string, User>();
-    const idsToFetch: string[] = [];
-    
-    // Check cache first
-    uniqueIds.forEach(id => {
-      const cachedData = userCache.get(id);
-      if (cachedData && (Date.now() - cachedData.timestamp) < CACHE_EXPIRATION) {
-        result.set(id, cachedData.user);
-      } else {
-        idsToFetch.push(id);
-      }
-    });
-    
-    if (idsToFetch.length === 0) {
-      return result;
-    }
-    
-    // Firestore only allows batches of 10 in 'in' queries
-    const batchSize = 10;
-    const batches = [];
-    
-    for (let i = 0; i < idsToFetch.length; i += batchSize) {
-      const batch = idsToFetch.slice(i, i + batchSize);
-      batches.push(batch);
-    }
-    
-    // Execute all batches in parallel
-    const batchResults = await Promise.all(
-      batches.map(async (batchIds) => {
-        const q = query(usersRef, where('__name__', 'in', batchIds));
-        return getDocs(q);
-      })
-    );
-    
-    // Process results
-    batchResults.forEach(querySnapshot => {
-      querySnapshot.docs.forEach(doc => {
-        const userData = doc.data();
-        const user: User = {
-          id: doc.id,
-          displayName: userData.displayName || 'Unknown User',
-          email: userData.email || '',
-          photoURL: userData.photoURL || '',
-        };
-        
-        result.set(user.id, user);
-        
-        // Update cache
-        userCache.set(user.id, {
-          user,
-          timestamp: Date.now()
-        });
-      });
-    });
-    
-    return result;
-  } catch (error) {
-    console.error('Error batch getting users:', error);
-    return new Map(); // Return empty map instead of throwing to prevent app crashes
-  }
-};
 
 /**
  * Search for users by name or email

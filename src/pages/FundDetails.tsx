@@ -31,11 +31,12 @@ import { FundInfoCard } from "@/components/funds/FundInfoCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { calculateTotalExpense } from "@/utils/transactionUtils";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
+import { BankAccountButton } from "@/components/profile/BankAccountButton";
 
 export default function FundDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { funds, selectedFund, setSelectedFund, calculateBalances, getUserById, currentUser, transactions } = useApp();
+  const { funds, selectedFund, setSelectedFund, calculateBalances, getUserById, currentUser, transactions, loadUsers, users } = useApp();
   
   // Use the same DateRange type as the TransactionList component
   const [dateRange, setDateRange] = useState<{
@@ -81,13 +82,35 @@ export default function FundDetails() {
   }, [id, funds, selectedFund, setSelectedFund, navigate, getFundById]);
 
   useEffect(() => {
-    // Check if data is loaded
+    // Check if data is loaded and preload users
     if (selectedFund) {
-      // Consider loading complete even if there are no transactions yet
-      setInitialLoadComplete(true);
-      isFirstRender.current = false;
+      // Get all unique user IDs that we need
+      const fundMemberIds = selectedFund.members || [];
+      const transactionUserIds = transactions
+        .filter(t => t.fundId === selectedFund.id)
+        .flatMap(t => [t.paidBy, ...t.splits.map(s => s.userId)]);
+      
+      const allUserIds = [...new Set([...fundMemberIds, ...transactionUserIds])];
+      
+      // Load users if we have IDs and they're not already loaded
+      if (allUserIds.length > 0) {
+        loadUsers(allUserIds).then(() => {
+          // Mark loading complete after users are loaded
+          setInitialLoadComplete(true);
+          isFirstRender.current = false;
+        }).catch(error => {
+          console.error('Error loading users:', error);
+          // Still mark complete even if user loading fails
+          setInitialLoadComplete(true);
+          isFirstRender.current = false;
+        });
+      } else {
+        // No users to load, mark complete
+        setInitialLoadComplete(true);
+        isFirstRender.current = false;
+      }
     }
-  }, [selectedFund, transactions]);
+  }, [selectedFund, transactions, loadUsers]);
 
   // Show skeleton during loading state
   const isLoading = !selectedFund || isFirstRender.current || !initialLoadComplete;
@@ -175,11 +198,8 @@ export default function FundDetails() {
               <span>Thêm giao dịch</span>
             </Button>
           </CreateTransactionSheet>
-          <ReturnMoneyButton fund={selectedFund}>
-            <Button variant="secondary" className="flex items-center gap-1 h-10 px-3 font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-800 border-emerald-200 transition-all">
-              <span>Trả tiền</span>
-            </Button>
-          </ReturnMoneyButton>
+          <BankAccountButton />
+          <ReturnMoneyButton fund={selectedFund} />
           <AiTransactionButton fund={selectedFund} />
           <Popover>
             <PopoverTrigger asChild>

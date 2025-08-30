@@ -63,32 +63,7 @@ export function AppNavbar() {
       </div>
 
       <div className="flex gap-2 items-center">
-        <nav className="hidden md:flex items-center gap-6">
-          <Link 
-            to="/dashboard"
-            onClick={handleNavigation}
-            className={cn(
-              "text-sm font-medium transition-colors hover:text-primary relative py-1",
-              location.pathname === "/dashboard" ? 
-                "text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary" : 
-                "text-muted-foreground"
-            )}
-          >
-            Dashboard
-          </Link>
-          <Link 
-            to="/funds/new"
-            onClick={handleNavigation}
-            className={cn(
-              "text-sm font-medium transition-colors hover:text-primary relative py-1",
-              location.pathname === "/funds/new" ? 
-                "text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary" : 
-                "text-muted-foreground"
-            )}
-          >
-            Create Fund
-          </Link>
-        </nav>
+
         
         
         <DropdownMenu>

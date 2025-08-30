@@ -14,40 +14,40 @@ export function InstallPWAPrompt() {
   const [isVisible, setIsVisible] = useState(false);
   const [isIOSDevice, setIsIOSDevice] = useState(false);
 
-  useEffect(() => {
-    // Check if it's an iOS device
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    setIsIOSDevice(isIOS);
+  // useEffect(() => {
+  //   // Check if it's an iOS device
+  //   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  //   setIsIOSDevice(isIOS);
 
-    // Check if already installed
-    const isInstalled = window.matchMedia('(display-mode: standalone)').matches || 
-                        (window.navigator as any).standalone === true;
+  //   // Check if already installed
+  //   const isInstalled = window.matchMedia('(display-mode: standalone)').matches || 
+  //                       (window.navigator as any).standalone === true;
     
-    // Don't show prompt if already installed
-    if (isInstalled) return;
+  //   // Don't show prompt if already installed
+  //   if (isInstalled) return;
 
-    // Store the install prompt event
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setInstallPrompt(e as BeforeInstallPromptEvent);
-      setIsVisible(true);
-    };
+  //   // Store the install prompt event
+  //   const handleBeforeInstallPrompt = (e: Event) => {
+  //     e.preventDefault();
+  //     setInstallPrompt(e as BeforeInstallPromptEvent);
+  //     setIsVisible(true);
+  //   };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  //   window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // Check if we should show iOS instructions
-    if (isIOS && !isInstalled) {
-      // Only show iOS instructions if not in standalone mode
-      const visited = localStorage.getItem('iosInstallPromptShown');
-      if (!visited) {
-        setIsVisible(true);
-      }
-    }
+  //   // Check if we should show iOS instructions
+  //   if (isIOS && !isInstalled) {
+  //     // Only show iOS instructions if not in standalone mode
+  //     const visited = localStorage.getItem('iosInstallPromptShown');
+  //     if (!visited) {
+  //       setIsVisible(true);
+  //     }
+  //   }
 
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
+  //   return () => {
+  //     window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  //   };
+  // }, []);
 
   const handleInstall = async () => {
     if (!installPrompt) return;

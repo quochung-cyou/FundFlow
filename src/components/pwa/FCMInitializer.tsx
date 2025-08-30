@@ -24,25 +24,14 @@ export function FCMInitializer({ pollingInterval = 10000 }: FCMInitializerProps)
   
   // Initialize service worker and push notifications
   useEffect(() => {
-    console.log('===== FCMInitializer: Component mounted =====');
-    console.log('Current user:', currentUser?.id);
-    console.log('Polling interval:', pollingInterval, 'ms');
     
     async function initializeServiceWorker() {
-      console.log('===== FCMInitializer: Initializing service worker =====');
       if (isPushNotificationSupported()) {
         try {
-          console.log('Push notifications are supported, registering service worker...');
+      
           const registration = await registerServiceWorker();
           if (registration) {
             setServiceWorkerRegistered(true);
-            console.log('✅ Service worker registered successfully:', registration);
-            
-            // Request permission if not already granted
-            console.log('Requesting push notification permission...');
-            const permissionResult = await requestPushPermission();
-            console.log('Push notification permission:', permissionResult ? '✅ GRANTED' : '❌ DENIED');
-            
             // Log service worker state
             if (registration.active) {
               console.log('Service worker active state:', registration.active.state);
@@ -63,28 +52,25 @@ export function FCMInitializer({ pollingInterval = 10000 }: FCMInitializerProps)
     
     // Immediate first check for notifications
     if (currentUser) {
-      console.log('Performing initial notification check for user:', currentUser.id);
+  
       setTimeout(() => {
         checkForNewNotifications();
       }, 1000); // Small delay to ensure everything is initialized
     }
     
     // Setup polling for notifications
-    console.log(`===== FCMInitializer: Setting up polling interval (${pollingInterval}ms) =====`);
+   
     const startTime = Date.now();
     const intervalId = setInterval(() => {
       const elapsedTime = Date.now() - startTime;
       if (currentUser) {
-        console.log(`===== FCMInitializer: Polling for notifications (${Math.floor(elapsedTime/1000)}s elapsed) =====`);
         checkForNewNotifications();
-      } else {
-        console.log(`No current user, skipping polling (${Math.floor(elapsedTime/1000)}s elapsed).`);
       }
     }, pollingInterval);
     
     // Clean up interval on unmount
     return () => {
-      console.log('===== FCMInitializer: Component unmounting, cleaning up polling interval =====');
+  
       clearInterval(intervalId);
     };
   }, [currentUser, pollingInterval]);
@@ -95,10 +81,8 @@ export function FCMInitializer({ pollingInterval = 10000 }: FCMInitializerProps)
   // Function to check for new notifications (polling fallback)
   async function checkForNewNotifications() {
     try {
-      console.log('Fetching notifications for user:', currentUser.id);
       // Get all notifications for the current user
       const notifications = await getUserNotifications(currentUser.id);
-      console.log('Fetched notifications:', notifications.length);
       
       if (notifications && notifications.length > 0) {
         // Sort notifications by creation time (newest first)
@@ -124,8 +108,6 @@ export function FCMInitializer({ pollingInterval = 10000 }: FCMInitializerProps)
           
           return isNew;
         });
-        
-        console.log('Found new notifications:', newNotifications.length);
         // Update the last notification time
         if (newNotifications.length > 0) {
           const latestTime = Math.max(
@@ -135,7 +117,6 @@ export function FCMInitializer({ pollingInterval = 10000 }: FCMInitializerProps)
                 : (typeof n.createdAt === 'object' && n.createdAt !== null ? n.createdAt.seconds * 1000 : Number(n.createdAt || 0));
             })
           );
-          console.log('Updating last notification time to:', latestTime);
           setLastNotificationTime(latestTime);
           
           // Process each new notification
@@ -143,13 +124,11 @@ export function FCMInitializer({ pollingInterval = 10000 }: FCMInitializerProps)
             try {
               // Mark as processed to prevent duplicates
               processedNotificationIds.current.add(notification.id);
-              console.log('Showing push notification for:', notification.id, notification.title);
-              
+           
               // Show browser push notification
               showBrowserNotification(notification);
               
               // Mark notification as read by current user in the database
-              console.log('Marking notification as read by current user:', notification.id);
               if (notification.fundId) {
                 // For fund-based notifications
                 const notificationRef = doc(
@@ -165,17 +144,15 @@ export function FCMInitializer({ pollingInterval = 10000 }: FCMInitializerProps)
                   readBy: arrayUnion(currentUser.id),
                   lastReadAt: Date.now()
                 });
-                console.log('✅ Notification marked as read by user', currentUser.id, 'in database:', notification.id);
+          
               }
             } catch (error) {
               console.error('Error processing notification:', notification.id, error);
             }
           });
         } else {
-          console.log('No new notifications found.');
         }
       } else {
-        console.log('No notifications fetched or empty list.');
       }
     } catch (error) {
       console.error('Error checking for notifications:', error);
@@ -186,18 +163,15 @@ export function FCMInitializer({ pollingInterval = 10000 }: FCMInitializerProps)
   function showBrowserNotification(notification: NotificationType) {
     // Check if browser notifications are supported and permission is granted
     if (!('Notification' in window)) {
-      console.log('Browser notifications not supported');
       return;
     }
     
     if (Notification.permission !== 'granted') {
-      console.log('Browser notification permission not granted');
       return;
     }
     
     // Check if we have an active service worker
     if (!navigator.serviceWorker.controller) {
-      console.log('No active service worker found for notifications');
       // Try to register service worker if not available
       registerServiceWorker().catch(err => console.error('Failed to register service worker:', err));
       return;

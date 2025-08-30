@@ -275,7 +275,13 @@ export function AiTransactionButton({
       {/* AI Assistant Button */}
       <Button
         variant={variant === "magical" ? "default" : variant}
-        className={cn("flex items-center gap-1", buttonClasses, className)}
+        className={cn(
+          "flex items-center gap-1", 
+          variant === "magical" 
+            ? "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg transition-all duration-300 border-0"
+            : "bg-violet-600 hover:bg-violet-700 text-white",
+          className
+        )}
         onClick={() => setIsOpen(true)}
       >
         <SparklesIcon className="h-4 w-4" />

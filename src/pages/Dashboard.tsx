@@ -9,18 +9,50 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { DashboardSkeleton } from "@/components/skeletons/DashboardSkeleton";
 import { TestNotification } from "@/components/pwa";
+import { useDashboard } from "@/services/dashboardService";
+import { BankAccountButton } from "@/components/profile/BankAccountButton";
 
 export default function Dashboard() {
-  const { funds, currentUser, isLoading } = useApp();
+  const { currentUser, loadUsers } = useApp();
+  const { funds, isLoading } = useDashboard(currentUser);
   const [searchTerm, setSearchTerm] = useState("");
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  
+  const [usersLoading, setUsersLoading] = useState(true);
+
+  // Load all users from funds when funds change
+  useEffect(() => {
+    if (!isLoading && funds.length > 0) {
+      console.log('Dashboard: Loading users for funds...');
+      const allUserIds = new Set<string>();
+      
+      funds.forEach(fund => {
+        fund.members.forEach(memberId => {
+          allUserIds.add(memberId);
+        });
+      });
+
+      console.log('Dashboard: Found user IDs to load:', Array.from(allUserIds));
+
+      if (allUserIds.size > 0) {
+        loadUsers(Array.from(allUserIds)).finally(() => {
+          console.log('Dashboard: User loading complete');
+          setUsersLoading(false);
+        });
+      } else {
+        setUsersLoading(false);
+      }
+    } else if (!isLoading && funds.length === 0) {
+      setUsersLoading(false);
+    }
+  }, [funds, isLoading, loadUsers]);
+
+
   // Set initialLoadComplete to true after the first load
   useEffect(() => {
-    if (!isLoading && !initialLoadComplete) {
+    if (!isLoading && !usersLoading && !initialLoadComplete) {
       setInitialLoadComplete(true);
     }
-  }, [isLoading]);
+  }, [isLoading, usersLoading, initialLoadComplete]);
 
   // Filter funds based on search term
   const filteredFunds = funds.filter(fund => 
@@ -44,9 +76,8 @@ export default function Dashboard() {
     show: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 70 } }
   };
 
-  // Show skeleton during initial loading
-  // We use initialLoadComplete to ensure we show the skeleton during the first load
-  if (isLoading || !initialLoadComplete) {
+  if (isLoading || usersLoading || !initialLoadComplete) {
+    console.log("Rendering DashboardSkeleton");
     return <DashboardSkeleton />
   }
 
@@ -65,6 +96,7 @@ export default function Dashboard() {
           <p className="text-muted-foreground">Quản lý chi tiêu nhóm của bạn một cách dễ dàng</p>
         </div>
         <div className="flex gap-2">
+          <BankAccountButton />
           <TestNotification variant="outline" size="sm" />
           <Button asChild className="group shadow-md hover:shadow-lg transition-all duration-300">
             <Link to="/funds/new" className="flex items-center gap-1">
