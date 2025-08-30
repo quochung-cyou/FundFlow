@@ -1,8 +1,32 @@
 # Để Tui Trả
 
-A modern, real-time fund management application for sharing and tracking expenses between friends, families, and groups. Using A.I for fast expense parsing and Vietnamese language processing.
+## Pain Point
 
-Note: This system NOT integrate with any payment gateway. This create a flexible system for users to manage their funds. You can payback each other with any payment method you want and verify by trust
+### Vietnamese
+
+Trong những lần đi ăn, đi chơi chung cùng bạn bè, đồng nghiệp, một trong những vấn đề mà mình hay gặp là liên tục phải lưu lại việc mọi người nợ nhau bao nhiêu tiền, ví dụ tạt qua 1 quán kem, đi qua 1 hàng ăn, và thường sẽ có 1 người đứng ra trả tiền, sau đó người này nợ người kia, người kia lại nợ người này, ....
+
+Từ những giải pháp như lưu trữ bằng tin nhắn, rồi ghi chú lại. Mình đã làm ra 1 sản phẩm với mục tiêu chính là giúp lưu trữ lại những thông tin chuyển khoản, với 1 số điểm hỗ trợ sau
+
+- Tập trung cải thiện UI/UX để việc tạo giao dịch trở lên nhanh chóng, rất ít nút và màn hình
+- Có A.I Hỗ trợ để có thể nhập các ghi chú phức tạp như "Sáng, Hưng chia tiền cả nhóm 600k, trưa Linh trả tiền ăn 60k, chiều Quỳnh trả cho Hưng, Minh 100k , ...." và A.I sẽ tính toán kết quả cuối ai nợ ai bao nhiêu.
+- Hỗ trợ chuyển đổi ngoại tệ ngay trên app, hỗ trợ cho du lịch nước ngoài
+- Không có tích hợp với cổng thanh toán nào cả, điều này khác với các app thanh toán như MoMo, Quỹ chia tiền khác, ... nơi mà chúng mình sẽ phải tạo tài khoản trên nền tảng, rồi phải nạp tiền vào nền tảng đó, ... và bị gắn chặt với nền tảng. Hệ thống sẽ cho phép bạn đăng kí STK  Ngân Hàng/ Ngân hàng của bản thân, và chỉ lưu trữ ,khi trả tiền ai thì hệ thống hiển thị QR người kia để nhanh chóng chuyển tiền.
+
+### English
+
+In group outings, one common issue is keeping track of who owes what to whom, especially when multiple people are involved in paying for shared expenses. This often leads to confusion and the need for meticulous record-keeping.
+
+To address this, I've developed a product aimed at simplifying the process of recording and managing these transactions, with several key features:
+
+- Focus on improving UI/UX for quick transaction creation with minimal buttons and screens.
+- AI support for parsing complex notes like "In the morning, Hung paid 600k for the group, in the afternoon, Linh paid 60k for lunch, and in the evening, Quynh paid 100k to Hung and Minh." The AI will calculate the final balances between users.
+- Support for currency conversion within the app, catering to international travel needs.
+- No integration with any payment gateways, unlike other payment apps (e.g., MoMo, shared funds), which require users to create accounts and deposit money into the platform. Instead, our system allows users to register their own bank accounts and only stores transaction information. When settling debts, the system displays the QR code of the recipient for quick payments.
+
+
+## Demo Image
+
 ![alt text](image-7.png)
 ![alt text](image-8.png)
 

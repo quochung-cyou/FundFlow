@@ -58,7 +58,7 @@ export function AppNavbar() {
       </div>
 
       <div className="flex items-center gap-3">
-        <img className="text-white p-1.5 rounded-md w-12 h-12" src="/logo.png" alt="Để Tui Trả" />
+        <img className="text-white p-2 rounded-md w-12 h-12 scale-[1.75]" src="/logo.png" alt="Để Tui Trả" />
         <h2 className="font-semibold text-lg hidden md:block">Để Tui Trả</h2>
       </div>
 
