@@ -95,7 +95,7 @@ export function InstallPWAPrompt() {
       <CardHeader className="space-y-1">
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl font-semibold">
-            Cài đặt Ứng dụng Fund Flow
+            Cài đặt Ứng dụng Để Tui Trả
           </CardTitle>
           <Button variant="ghost" size="icon" onClick={handleDismiss} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
             <X className="h-4 w-4" />

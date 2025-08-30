@@ -36,7 +36,7 @@ export function LoginPage({ noRedirect = false }: LoginPageProps) {
     <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold">Fund Flow</h1>
+          <h1 className="text-3xl font-bold">Để Tui Trả</h1>
           <p className="text-muted-foreground mt-2">Quản lý quỹ chung dễ dàng</p>
         </div>
         <LoginForm />

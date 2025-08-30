@@ -29,15 +29,15 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'logo.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'Fund Flow',
-        short_name: 'FundFlow',
+        name: 'Để Tui Trả',
+        short_name: 'Để Tui Trả',
         description: 'Điểm chạm của nền kinh tế số',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
         icons: [
           {
-            src: '/pwa-512x512.png',
+            src: '/logo.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'

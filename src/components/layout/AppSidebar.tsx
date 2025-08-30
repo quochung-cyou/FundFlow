@@ -66,7 +66,7 @@ export function AppSidebar() {
             <div className="bg-blue-500 text-white p-1.5 rounded-md flex-shrink-0">
               <PiggyBank className="h-5 w-5" />
             </div>
-            <h2 className="font-semibold text-lg truncate">Fund Flow</h2>
+            <h2 className="font-semibold text-lg truncate">Để Tui Trả</h2>
           </div>
           <div className="flex items-center flex-shrink-0">
             <SidebarTrigger />

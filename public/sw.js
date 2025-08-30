@@ -45,9 +45,9 @@ messaging.onBackgroundMessage((payload) => {
   console.log('Background message received:', payload);
   
   // Extract notification data with fallbacks for all properties
-  const notificationTitle = payload.notification?.title || 'Fund Flow Notification';
+  const notificationTitle = payload.notification?.title || 'Để Tui Trả Notification';
   const notificationOptions = {
-    body: payload.notification?.body || 'New notification from Fund Flow',
+    body: payload.notification?.body || 'New notification from Để Tui Trả',
     icon: payload.notification?.icon || '/pwa-512x512.png',
     badge: '/logo.png',
     vibrate: [100, 50, 100],
@@ -92,7 +92,7 @@ self.addEventListener('push', (event) => {
       const notificationId = data.notificationId || `push-${Date.now()}`;
       
       const options = {
-        body: data.body || 'New notification from Fund Flow',
+        body: data.body || 'New notification from Để Tui Trả',
         icon: data.icon || '/pwa-512x512.png',
         badge: '/logo.png',
         vibrate: [100, 50, 100],
@@ -112,7 +112,7 @@ self.addEventListener('push', (event) => {
       event.waitUntil(
         Promise.all([
           // Show the notification
-          self.registration.showNotification(data.title || 'Fund Flow Notification', options),
+          self.registration.showNotification(data.title || 'Để Tui Trả Notification', options),
           
           // Broadcast message to client to update UI if app is open
           self.clients.matchAll({type: 'window', includeUncontrolled: true})
@@ -130,7 +130,7 @@ self.addEventListener('push', (event) => {
       console.error('Error processing push notification:', error);
       // Fallback for text messages
       const options = {
-        body: event.data.text() || 'New notification from Fund Flow',
+        body: event.data.text() || 'New notification from Để Tui Trả',
         icon: '/pwa-512x512.png',
         badge: '/logo.png',
         tag: `fallback-${Date.now()}`,
@@ -138,7 +138,7 @@ self.addEventListener('push', (event) => {
       };
       
       event.waitUntil(
-        self.registration.showNotification('Fund Flow Notification', options)
+        self.registration.showNotification('Để Tui Trả Notification', options)
       );
     }
   }

@@ -10,7 +10,7 @@ export function LoginPage() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-50 to-blue-100 p-4">
       <div className="glass-effect rounded-2xl p-8 w-full max-w-md animate-fade-in">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2 text-blue-600">Fund Flow</h1>
+          <h1 className="text-3xl font-bold mb-2 text-blue-600">Để Tui Trả</h1>
           <p className="text-slate-600">Quản lý quỹ nhóm một cách dễ dàng</p>
         </div>
         

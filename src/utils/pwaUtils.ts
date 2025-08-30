@@ -113,7 +113,7 @@ export const sendTestPushNotification = async () => {
     const registration = await navigator.serviceWorker.ready;
     
     // This is just for testing - in a real app, notifications would come from your server
-    registration.showNotification('Welcome to Fund Flow!', {
+    registration.showNotification('Welcome to Để Tui Trả!', {
       body: 'Thank you for enabling notifications. You will now receive updates on your transactions.',
       icon: '/pwa-512x512.png',
       badge: '/logo.png',

@@ -1,4 +1,4 @@
-# Fund Flow
+# Để Tui Trả
 
 A modern, real-time fund management application for sharing and tracking expenses between friends, families, and groups. Using A.I for fast expense parsing and Vietnamese language processing.
 
@@ -29,7 +29,7 @@ Note: This system NOT integrate with any payment gateway. This create a flexible
 
 ## 🌐 Overview
 
-Fund Flow Style is a responsive web application designed to simplify shared expense management. It enables users to create funds for different groups, add members, track transactions, and automatically calculate balances with support for Vietnamese language processing.
+Để Tui Trả Style is a responsive web application designed to simplify shared expense management. It enables users to create funds for different groups, add members, track transactions, and automatically calculate balances with support for Vietnamese language processing.
 
 The application solves the common problem of tracking "who owes who" in shared expenses scenarios, with particular optimization for Vietnamese language patterns when describing expense splits.
 
