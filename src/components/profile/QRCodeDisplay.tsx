@@ -77,7 +77,7 @@ export function QRCodeDisplay({ user, amount, description, isOpen, onClose }: Re
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Mã QR chuyển tiền</DialogTitle>
           <DialogDescription>
